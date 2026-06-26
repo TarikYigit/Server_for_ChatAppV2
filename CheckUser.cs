@@ -4,8 +4,18 @@ using System.Text;
 
 namespace Server_for_ChatApp
 {
-    internal class CheckUser
+    public class CheckUser
     {
+        public List<string> Active_User_List;
 
+        public void Set_User_Active(string username)
+        {
+            Active_User_List.Add(username);
+        }
+
+        public void Set_User_Offline(string username)
+        {
+            Active_User_List.Remove(username);
+        }
     }
 }

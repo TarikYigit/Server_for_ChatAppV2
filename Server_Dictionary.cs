@@ -29,14 +29,12 @@ namespace Server_for_ChatApp
             User_Log_Data[key] = value;
         }
 
-        // get log out data for message backlog
-        public string GetItem(string key)
+        //get log out data for message backlog
+        public string Get_Item(string key)
         {
-            if (User_Log_Data.TryGetValue(key, out string value))
-            {
-                return value;
-            }
-            return "Not Found";
+            User_Log_Data.TryGetValue(key, out string value);
+            return value;
+           
         }
     }
 }
