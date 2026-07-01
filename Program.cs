@@ -23,7 +23,7 @@ namespace Server_for_ChatApp
         private TcpListener listener;
         private bool isRunning;
 
-        // User ID Dictionary 
+        // User ID Dictionary
         public Random_User_ID _idManager;
 
         UserDictionary User_Logs = new UserDictionary();
@@ -50,6 +50,21 @@ namespace Server_for_ChatApp
             }
         }
 
+        public void BroadcastUserList()
+        {
+            byte[] fullListPacket = Send_User_List.GenerateUserListPacket(_idManager);
+
+            foreach (var activeStream in Active_Connections.Values.ToList())
+            {
+                try
+                {
+                    send_packet(activeStream, fullListPacket);
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
         public void send_packet(NetworkStream stream, byte[] packet)
         {
             //BinaryReader reader = new BinaryReader(new MemoryStream(packet));
@@ -76,7 +91,7 @@ namespace Server_for_ChatApp
 
                     switch ((MessageId)Message_Request[0])
                     {
-                        case MessageId.LOG_IN:  // New user 
+                        case MessageId.LOG_IN:  // New user
                             {
                                 stream.Read(Message_Length_In_Bytes, 0, 4);
                                 int Message_Length = BitConverter.ToInt32(Message_Length_In_Bytes, 0);
@@ -102,6 +117,7 @@ namespace Server_for_ChatApp
 
                                     byte[] authenticate_Packet = packetList.ToArray();
                                     send_packet(stream, authenticate_Packet);
+                                    BroadcastUserList();
                                 }
                                 else
                                 {
@@ -112,12 +128,12 @@ namespace Server_for_ChatApp
                                     send_packet(stream, authenticate_Packet);
 
                                     client.Close();
-                                    return; 
+                                    return;
                                 }
                             }
                             break;
 
-                        case MessageId.GET_USERS:  // Give user list   
+                        case MessageId.GET_USERS:  // Give user list
                             {
                                 byte[] requesterIdBuffer = new byte[1];
                                 stream.Read(requesterIdBuffer, 0, 1);
@@ -158,7 +174,7 @@ namespace Server_for_ChatApp
                                     }
                                     else
                                     {
-                                        New_Message_Log.Add_New_Message($"[{DateTime.Now.ToString("yyyy-MM-dd-HH:mm:ss")}] {currentUsername} {receiverId} {Encoding.UTF8.GetString(messageBytes)}\n");
+                                        New_Message_Log.Add_New_Message($"[{DateTime.Now.ToString("yyyy-MM-dd-HH:mm:ss")}] {senderId} {receiverId} {Encoding.UTF8.GetString(messageBytes)}\n");
                                     }
                                 }
                             }
@@ -188,21 +204,42 @@ namespace Server_for_ChatApp
                                     if (kvp.Value == currentUsername)
                                     {
                                         int loggedInUserId = kvp.Key;
+
+                                        List<byte> authPacket = new List<byte>();
+                                        authPacket.Add(0x01);                       // Message Type (Auth Response)
+                                        authPacket.Add(0x01);                       // 0x01 = Accepted
+                                        authPacket.Add((byte)loggedInUserId);       // Give them their ID back
+                                        send_packet(stream, authPacket.ToArray());
+
+                                        BroadcastUserList();
+
                                         List<string> offlineMessages = Check_Offline_Messages.Get_And_Remove_Messages(loggedInUserId);
 
-                                        foreach (string msgText in offlineMessages)
+                                        foreach (string rawFileLine in offlineMessages)
                                         {
-                                            byte[] msgBytes = Encoding.UTF8.GetBytes(msgText);
-                                            int length = msgBytes.Length;
-                                            if (length > 255) length = 255;
+                                            string[] parts = rawFileLine.Split(new char[] { ' ' }, 4);
 
-                                            byte[] offlineOut = new byte[3 + length];
-                                            offlineOut[0] = 0x03;
-                                            offlineOut[1] = 0; // Server ID
-                                            offlineOut[2] = (byte)length;
-                                            Array.Copy(msgBytes, 0, offlineOut, 3, length);
+                                            if (parts.Length == 4)
+                                            {
+                                                if (byte.TryParse(parts[1], out byte realSenderId))
+                                                {
+                                                    string actualMessage = parts[3];
 
-                                            send_packet(stream, offlineOut);
+                                                    byte[] msgBytes = Encoding.UTF8.GetBytes(actualMessage);
+                                                    int length = msgBytes.Length;
+                                                    if (length > 255) length = 255;
+
+                                                    byte[] offlineOut = new byte[3 + length];
+                                                    offlineOut[0] = 0x03; // Message type
+
+                                                    offlineOut[1] = realSenderId;
+
+                                                    offlineOut[2] = (byte)length;
+                                                    Array.Copy(msgBytes, 0, offlineOut, 3, length);
+
+                                                    send_packet(stream, offlineOut);
+                                                }
+                                            }
                                         }
                                         break;
                                     }
@@ -224,7 +261,6 @@ namespace Server_for_ChatApp
             int port = 5000;
             Random_User_ID masterIdManager = new Random_User_ID();
 
-            // FIXED: Pass the initialized masterIdManager into the server
             TCPServer server = new TCPServer(port, masterIdManager);
 
             server.Start();
