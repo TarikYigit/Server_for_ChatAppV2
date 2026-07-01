@@ -14,7 +14,7 @@ namespace Server_for_ChatApp
         SEND_MESSAGE = 3,
         LOG_OUT = 4,
         EXISTING_USER_LOG_IN = 5,
-
+        FETCH_OFFLINE_MESSAGES = 6, 
     }
 
 
@@ -213,39 +213,67 @@ namespace Server_for_ChatApp
 
                                         BroadcastUserList();
 
-                                        List<string> offlineMessages = Check_Offline_Messages.Get_And_Remove_Messages(loggedInUserId);
-
-                                        foreach (string rawFileLine in offlineMessages)
-                                        {
-                                            string[] parts = rawFileLine.Split(new char[] { ' ' }, 4);
-
-                                            if (parts.Length == 4)
-                                            {
-                                                if (byte.TryParse(parts[1], out byte realSenderId))
-                                                {
-                                                    string actualMessage = parts[3];
-
-                                                    byte[] msgBytes = Encoding.UTF8.GetBytes(actualMessage);
-                                                    int length = msgBytes.Length;
-                                                    if (length > 255) length = 255;
-
-                                                    byte[] offlineOut = new byte[3 + length];
-                                                    offlineOut[0] = 0x03; // Message type
-
-                                                    offlineOut[1] = realSenderId;
-
-                                                    offlineOut[2] = (byte)length;
-                                                    Array.Copy(msgBytes, 0, offlineOut, 3, length);
-
-                                                    send_packet(stream, offlineOut);
-                                                }
-                                            }
-                                        }
                                         break;
                                     }
                                 }
                             }
                             break;
+
+                        case MessageId.FETCH_OFFLINE_MESSAGES: // Client is asking for missed messages
+                            {
+                                byte[] idBuffer = new byte[1];
+                                stream.Read(idBuffer, 0, 1);
+                                byte requesterId = idBuffer[0]; // This is the user asking for their messages
+
+                                List<string> offlineMessages = Check_Offline_Messages.Get_And_Remove_Messages(requesterId);
+
+                                foreach (string rawFileLine in offlineMessages)
+                                {
+                                    string[] parts = rawFileLine.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                                    byte realSenderId = 0;
+                                    int messageStartIndex = -1;
+
+
+                                    for (int i = 0; i < parts.Length - 1; i++)
+                                    {
+                                        if (byte.TryParse(parts[i], out byte parsedSender) &&
+                                            byte.TryParse(parts[i + 1], out byte parsedReceiver))
+                                        {
+                                            if (parsedReceiver == requesterId)
+                                            {
+                                                realSenderId = parsedSender;
+                                                messageStartIndex = i + 2; // The message text starts immediately after the IDs
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (messageStartIndex != -1)
+                                    {   
+                                        string actualMessage = "";
+                                        for (int i = messageStartIndex; i < parts.Length; i++)
+                                        {
+                                            actualMessage += parts[i] + (i == parts.Length - 1 ? "" : " ");
+                                        }
+
+                                        byte[] msgBytes = Encoding.UTF8.GetBytes(actualMessage);
+                                        int length = msgBytes.Length;
+                                        if (length > 255) length = 255;
+
+                                        byte[] offlineOut = new byte[3 + length];
+                                        offlineOut[0] = 0x03; // Standard Chat Message type
+
+                                        offlineOut[1] = realSenderId;
+
+                                        offlineOut[2] = (byte)length;
+                                        Array.Copy(msgBytes, 0, offlineOut, 3, length);
+
+                                        send_packet(stream, offlineOut);
+                                    }
+                                }
+                                break;
+                            }
                     }
                 }
             }
