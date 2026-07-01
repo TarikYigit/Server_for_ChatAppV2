@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq; // Added this to prevent the .ToList() error
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -14,9 +15,8 @@ namespace Server_for_ChatApp
         SEND_MESSAGE = 3,
         LOG_OUT = 4,
         EXISTING_USER_LOG_IN = 5,
-        FETCH_OFFLINE_MESSAGES = 6, 
+        FETCH_OFFLINE_MESSAGES = 6,
     }
-
 
     class TCPServer
     {
@@ -65,14 +65,12 @@ namespace Server_for_ChatApp
                 }
             }
         }
+
         public void send_packet(NetworkStream stream, byte[] packet)
         {
-            //BinaryReader reader = new BinaryReader(new MemoryStream(packet));
             stream.Write(packet, 0, packet.Length);
-            stream.Flush();
+            stream.Flush(); // This ensures packets don't get stuck in the network buffer!
         }
-
-
 
         public void HandleClient(TcpClient client)
         {
@@ -219,13 +217,16 @@ namespace Server_for_ChatApp
                             }
                             break;
 
-                        case MessageId.FETCH_OFFLINE_MESSAGES: // Client is asking for missed messages
+                        case MessageId.FETCH_OFFLINE_MESSAGES: // --- X-RAY TRACKER ADDED HERE ---
                             {
                                 byte[] idBuffer = new byte[1];
                                 stream.Read(idBuffer, 0, 1);
-                                byte requesterId = idBuffer[0]; // This is the user asking for their messages
+                                byte requesterId = idBuffer[0];
+
+                                Console.WriteLine($"\n[SERVER] User {requesterId} is asking for offline messages...");
 
                                 List<string> offlineMessages = Check_Offline_Messages.Get_And_Remove_Messages(requesterId);
+                                Console.WriteLine($"[SERVER] Found {offlineMessages.Count} messages in the vault for User {requesterId}.");
 
                                 foreach (string rawFileLine in offlineMessages)
                                 {
@@ -233,7 +234,6 @@ namespace Server_for_ChatApp
 
                                     byte realSenderId = 0;
                                     int messageStartIndex = -1;
-
 
                                     for (int i = 0; i < parts.Length - 1; i++)
                                     {
@@ -243,19 +243,21 @@ namespace Server_for_ChatApp
                                             if (parsedReceiver == requesterId)
                                             {
                                                 realSenderId = parsedSender;
-                                                messageStartIndex = i + 2; // The message text starts immediately after the IDs
+                                                messageStartIndex = i + 2;
                                                 break;
                                             }
                                         }
                                     }
 
                                     if (messageStartIndex != -1)
-                                    {   
+                                    {
                                         string actualMessage = "";
                                         for (int i = messageStartIndex; i < parts.Length; i++)
                                         {
                                             actualMessage += parts[i] + (i == parts.Length - 1 ? "" : " ");
                                         }
+
+                                        Console.WriteLine($"[SERVER] Packaging message from ID {realSenderId} to ID {requesterId}. Content: {actualMessage}");
 
                                         byte[] msgBytes = Encoding.UTF8.GetBytes(actualMessage);
                                         int length = msgBytes.Length;
@@ -270,10 +272,15 @@ namespace Server_for_ChatApp
                                         Array.Copy(msgBytes, 0, offlineOut, 3, length);
 
                                         send_packet(stream, offlineOut);
+                                        Console.WriteLine($"[SERVER] Packet sent to User {requesterId} successfully!");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"[SERVER-ERROR] Failed to parse IDs from line: {rawFileLine}");
                                     }
                                 }
-                                break;
                             }
+                            break;
                     }
                 }
             }

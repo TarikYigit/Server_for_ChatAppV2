@@ -1,30 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 
 namespace Server_for_ChatApp
 {
     internal static class Check_Offline_Messages
     {
         public static string file = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Playground\Message_Save.txt";
+
         public static List<string> Get_And_Remove_Messages(int user_ID)
         {
             List<string> userMessages = new List<string>();
             List<string> linesToKeep = new List<string>();
+
+            // Safety check: Don't crash if the file doesn't exist yet!
+            if (!File.Exists(file)) return userMessages;
+
             foreach (var line in File.ReadLines(file))
             {
-                string[] parts = line.Split(" ");
+                string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-                if (parts[2] == user_ID.ToString())
+                // Make sure the line has enough parts before checking the ID
+                if (parts.Length >= 4 && parts[2] == user_ID.ToString())
                 {
-                    string message = line.Substring(line.IndexOf(parts[3]));
-                    userMessages.Add(message);
+                    // THE FIX: Hand the ENTIRE untouched line back to the server!
+                    userMessages.Add(line);
                 }
                 else
                 {
-                    linesToKeep.Add(line);                  //Instead of last login I will just delete the sent messages from the message log
+                    linesToKeep.Add(line);
                 }
             }
 
