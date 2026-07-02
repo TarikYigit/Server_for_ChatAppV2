@@ -1,12 +1,14 @@
-﻿using System;
+﻿using ServerForChatApp.Messages.ClientToServer;
+using ServerForChatApp.Messages.ServerToClient;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq; // Added this to prevent the .ToList() error
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace Server_for_ChatApp
+namespace ServerForChatApp
 {
     enum MessageId : byte
     {
@@ -18,20 +20,18 @@ namespace Server_for_ChatApp
         FETCH_OFFLINE_MESSAGES = 6,
     }
 
+
     class TCPServer
     {
         private TcpListener listener;
         private bool isRunning;
 
-        // User ID Dictionary
-        public Random_User_ID _idManager;
+        public RandomUserID _idManager;
+        UserDictionary UserLogs = new UserDictionary();
+        public Dictionary<string, NetworkStream> ActiveConnections = new Dictionary<string, NetworkStream>();
 
-        UserDictionary User_Logs = new UserDictionary();
-
-        // Active Connections Dictionary
-        private Dictionary<string, NetworkStream> Active_Connections = new Dictionary<string, NetworkStream>();
-
-        public TCPServer(int port, Random_User_ID idManager)
+        byte accepted = 0x01;
+        public TCPServer(int port, RandomUserID idManager)
         {
             listener = new TcpListener(IPAddress.Loopback, port);
             _idManager = idManager;
@@ -43,22 +43,25 @@ namespace Server_for_ChatApp
             isRunning = true;
             Console.WriteLine("Server started...");
 
+
+
             while (isRunning)
             {
                 TcpClient client = listener.AcceptTcpClient();
                 System.Threading.ThreadPool.QueueUserWorkItem(state => HandleClient(client));
+
             }
         }
 
         public void BroadcastUserList()
         {
-            byte[] fullListPacket = Send_User_List.GenerateUserListPacket(_idManager);
+            GetUserListForClient listData = new GetUserListForClient(new byte[0], _idManager);
 
-            foreach (var activeStream in Active_Connections.Values.ToList())
+            foreach (var activeStream in ActiveConnections.Values.ToList())
             {
                 try
                 {
-                    send_packet(activeStream, fullListPacket);
+                    SendUserListToClient.SendUserListPacket(this, activeStream, listData);
                 }
                 catch (Exception)
                 {
@@ -66,10 +69,24 @@ namespace Server_for_ChatApp
             }
         }
 
-        public void send_packet(NetworkStream stream, byte[] packet)
+
+        public void SendPacket(NetworkStream stream, byte messageId, byte[] payload) 
         {
-            stream.Write(packet, 0, packet.Length);
-            stream.Flush(); // This ensures packets don't get stuck in the network buffer!
+            int payloadLength = payload?.Length ?? 0;
+            byte[] finalPacket = new byte[1 + 4 + payloadLength];
+
+            finalPacket[0] = messageId;
+
+            byte[] lengthBytes = BitConverter.GetBytes(payloadLength);
+            Array.Copy(lengthBytes, 0, finalPacket, 1, 4);
+
+            if (payloadLength > 0)
+            {
+                Array.Copy(payload, 0, finalPacket, 5, payloadLength);
+            }
+
+            stream.Write(finalPacket, 0, finalPacket.Length);
+            stream.Flush();
         }
 
         public void HandleClient(TcpClient client)
@@ -77,208 +94,95 @@ namespace Server_for_ChatApp
             NetworkStream stream = client.GetStream();
             string currentUsername = "";
 
-            byte[] Message_Request = new byte[1];
-            byte[] Message_Length_In_Bytes = new byte[4];
+            byte[] headerBuffer = new byte[5];
 
             try
             {
                 while (client.Connected)
                 {
-                    int bytesRead = stream.Read(Message_Request, 0, 1);
-                    if (bytesRead == 0) break; // Client disconnected unexpectedly
-
-                    switch ((MessageId)Message_Request[0])
+                    int headerRead = 0;
+                    while (headerRead < 5)
                     {
-                        case MessageId.LOG_IN:  // New user
+                        int read = stream.Read(headerBuffer, headerRead, 5 - headerRead);
+                        if (read == 0) throw new Exception("Client disconnected");
+                        headerRead += read;
+                    }
+
+                    MessageId messageId = (MessageId)headerBuffer[0];
+                    int payloadLength = BitConverter.ToInt32(headerBuffer, 1);
+
+                    byte[] payload = new byte[payloadLength];
+                    int payloadRead = 0;
+                    while (payloadRead < payloadLength)
+                    {
+                        int read = stream.Read(payload, payloadRead, payloadLength - payloadRead);
+                        if (read == 0) throw new Exception("Client disconnected mid-payload");
+                        payloadRead += read;
+                    }
+
+                    switch (messageId)
+                    {
+                        case MessageId.LOG_IN:
                             {
-                                stream.Read(Message_Length_In_Bytes, 0, 4);
-                                int Message_Length = BitConverter.ToInt32(Message_Length_In_Bytes, 0);
-                                Console.WriteLine("new connection");
+                                LoginForClient loginRequest = new LoginForClient(payload, _idManager, UserLogs);
+                                AuthenticateClient.SendAuthenticationPacket(this, stream, loginRequest);
+                                // byte[] data = loginRequest.ToBytes();
+                                //SendPacket(stream, loginRequest.GetId(), loginRequest.ToBytes());
 
-                                byte[] current_username_in_bytes = new byte[Message_Length];
-                                stream.Read(current_username_in_bytes, 0, Message_Length);
-                                currentUsername = Encoding.UTF8.GetString(current_username_in_bytes);
-
-                                int newUserId = _idManager.Generate_Random_User_ID(currentUsername);
-                                User_Logs.AddItem(currentUsername, "0000-00-00-00:00:00");
-                                Active_Connections[currentUsername] = stream;
-
-                                List<byte> packetList = new List<byte>();
-
-                                // send message saying accepted or rejected
-                                if (User_Logs.Get_Item(currentUsername) != null)
+                                //Internal Server Logic, not sent to client
+                                bool flowControl = ServerDictionariesHoldingClientActivity(client, stream, ref currentUsername, loginRequest);
+                                if (!flowControl)
                                 {
-                                    packetList.Add(0x01); // message type
-                                    packetList.Add(0x01); // accepted
+                                    return;
+                                }
+                            }
+                            break;
 
-                                    packetList.Add((byte)newUserId);
+                        case MessageId.GET_USERS:
+                            {
+                                GetUserListForClient getUserListForClient = new GetUserListForClient(payload, _idManager);
+                                SendUserListToClient.SendUserListPacket(this, stream, getUserListForClient);
+                            }
+                            break;
 
-                                    byte[] authenticate_Packet = packetList.ToArray();
-                                    send_packet(stream, authenticate_Packet);
+                        case MessageId.SEND_MESSAGE:
+                            {   
+                                SendMessageRequestFromClient createSendMessageRequestForClient = new SendMessageRequestFromClient(payload, _idManager, UserLogs);
+                                SendMessageToClient.SendMessageFromClientToClient(this, stream, _idManager, createSendMessageRequestForClient, ActiveConnections);
+                            }
+                            break;
+
+                        case MessageId.LOG_OUT:
+                            {
+                                ClientLoggedOutByPressingActualLogOut(client, currentUsername);
+                                return;
+                            }
+
+                        case MessageId.EXISTING_USER_LOG_IN:
+                            {
+                                ExistingUserLogInRequest existingRequest = new ExistingUserLogInRequest(payload, _idManager);
+
+                                if (existingRequest.IsValid)
+                                {
+                                    currentUsername = ActiveUserDataForServerUse(stream, existingRequest);
+
+                                    AuthenticateClient.SendAuthenticationPacket(this, stream, existingRequest);
+
                                     BroadcastUserList();
                                 }
                                 else
                                 {
-                                    packetList.Add(0x01); // message type
-                                    packetList.Add(0x02); // rejected
-
-                                    byte[] authenticate_Packet = packetList.ToArray();
-                                    send_packet(stream, authenticate_Packet);
-
+                                    AuthenticateClient.SendAuthenticationPacket(this, stream, existingRequest);
                                     client.Close();
                                     return;
                                 }
                             }
                             break;
 
-                        case MessageId.GET_USERS:  // Give user list
+                        case MessageId.FETCH_OFFLINE_MESSAGES:
                             {
-                                byte[] requesterIdBuffer = new byte[1];
-                                stream.Read(requesterIdBuffer, 0, 1);
-                                byte requesterId = requesterIdBuffer[0];
-
-                                byte[] finalOutgoingBytes = Send_User_List.GenerateUserListPacket(_idManager);
-                                send_packet(stream, finalOutgoingBytes);
-                            }
-                            break;
-
-                        case MessageId.SEND_MESSAGE:  // Send message
-                            {
-                                byte[] senderIdBuffer = new byte[1];
-                                stream.Read(senderIdBuffer, 0, 1);
-                                byte senderId = senderIdBuffer[0];
-
-                                byte[] receiverIdBuffer = new byte[1];
-                                stream.Read(receiverIdBuffer, 0, 1);
-                                byte receiverId = receiverIdBuffer[0];
-
-                                byte[] messageLengthBuffer = new byte[1];
-                                stream.Read(messageLengthBuffer, 0, 1);
-                                byte messageLength = messageLengthBuffer[0];
-
-                                byte[] messageBytes = new byte[messageLength];
-                                stream.Read(messageBytes, 0, messageLength);
-
-                                if (_idManager.User_ID_Dictionary.TryGetValue(receiverId, out string receiverUsername))
-                                {
-                                    if (Active_Connections.TryGetValue(receiverUsername, out NetworkStream receiverStream))
-                                    {
-                                        byte[] outgoingMessage = new byte[3 + messageLength];
-                                        outgoingMessage[0] = 0x03;
-                                        outgoingMessage[1] = senderId;
-                                        outgoingMessage[2] = messageLength;
-                                        Array.Copy(messageBytes, 0, outgoingMessage, 3, messageLength);
-                                        send_packet(receiverStream, outgoingMessage);
-                                    }
-                                    else
-                                    {
-                                        New_Message_Log.Add_New_Message($"[{DateTime.Now.ToString("yyyy-MM-dd-HH:mm:ss")}] {senderId} {receiverId} {Encoding.UTF8.GetString(messageBytes)}\n");
-                                    }
-                                }
-                            }
-                            break;
-
-                        case MessageId.LOG_OUT:  // Log out
-                            {
-                                User_Logs.SetItem(currentUsername, DateTime.Now.ToString("yyyy-MM-dd-HH:mm:ss"));
-                                Active_Connections.Remove(currentUsername);
-                                client.Close();
-                                return;
-                            }
-
-                        case MessageId.EXISTING_USER_LOG_IN:  // Existing user log in
-                            {
-                                stream.Read(Message_Length_In_Bytes, 0, 4);
-                                int Message_Length = BitConverter.ToInt32(Message_Length_In_Bytes, 0);
-
-                                byte[] current_username_in_bytes = new byte[Message_Length];
-                                stream.Read(current_username_in_bytes, 0, Message_Length);
-                                currentUsername = Encoding.UTF8.GetString(current_username_in_bytes);
-
-                                Active_Connections[currentUsername] = stream;
-
-                                foreach (var kvp in _idManager.User_ID_Dictionary)
-                                {
-                                    if (kvp.Value == currentUsername)
-                                    {
-                                        int loggedInUserId = kvp.Key;
-
-                                        List<byte> authPacket = new List<byte>();
-                                        authPacket.Add(0x01);                       // Message Type (Auth Response)
-                                        authPacket.Add(0x01);                       // 0x01 = Accepted
-                                        authPacket.Add((byte)loggedInUserId);       // Give them their ID back
-                                        send_packet(stream, authPacket.ToArray());
-
-                                        BroadcastUserList();
-
-                                        break;
-                                    }
-                                }
-                            }
-                            break;
-
-                        case MessageId.FETCH_OFFLINE_MESSAGES: // --- X-RAY TRACKER ADDED HERE ---
-                            {
-                                byte[] idBuffer = new byte[1];
-                                stream.Read(idBuffer, 0, 1);
-                                byte requesterId = idBuffer[0];
-
-                                Console.WriteLine($"\n[SERVER] User {requesterId} is asking for offline messages...");
-
-                                List<string> offlineMessages = Check_Offline_Messages.Get_And_Remove_Messages(requesterId);
-                                Console.WriteLine($"[SERVER] Found {offlineMessages.Count} messages in the vault for User {requesterId}.");
-
-                                foreach (string rawFileLine in offlineMessages)
-                                {
-                                    string[] parts = rawFileLine.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-                                    byte realSenderId = 0;
-                                    int messageStartIndex = -1;
-
-                                    for (int i = 0; i < parts.Length - 1; i++)
-                                    {
-                                        if (byte.TryParse(parts[i], out byte parsedSender) &&
-                                            byte.TryParse(parts[i + 1], out byte parsedReceiver))
-                                        {
-                                            if (parsedReceiver == requesterId)
-                                            {
-                                                realSenderId = parsedSender;
-                                                messageStartIndex = i + 2;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if (messageStartIndex != -1)
-                                    {
-                                        string actualMessage = "";
-                                        for (int i = messageStartIndex; i < parts.Length; i++)
-                                        {
-                                            actualMessage += parts[i] + (i == parts.Length - 1 ? "" : " ");
-                                        }
-
-                                        Console.WriteLine($"[SERVER] Packaging message from ID {realSenderId} to ID {requesterId}. Content: {actualMessage}");
-
-                                        byte[] msgBytes = Encoding.UTF8.GetBytes(actualMessage);
-                                        int length = msgBytes.Length;
-                                        if (length > 255) length = 255;
-
-                                        byte[] offlineOut = new byte[3 + length];
-                                        offlineOut[0] = 0x03; // Standard Chat Message type
-
-                                        offlineOut[1] = realSenderId;
-
-                                        offlineOut[2] = (byte)length;
-                                        Array.Copy(msgBytes, 0, offlineOut, 3, length);
-
-                                        send_packet(stream, offlineOut);
-                                        Console.WriteLine($"[SERVER] Packet sent to User {requesterId} successfully!");
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine($"[SERVER-ERROR] Failed to parse IDs from line: {rawFileLine}");
-                                    }
-                                }
+                                FetchOfflineMessagesForClient fetchRequest = new FetchOfflineMessagesForClient(payload);
+                                SendOfflineMessagesToClient.SendMessages(this, stream, fetchRequest);
                             }
                             break;
                     }
@@ -286,18 +190,47 @@ namespace Server_for_ChatApp
             }
             catch (Exception)
             {
-                // Ensures a sudden disconnect doesn't crash the server
-                Active_Connections.Remove(currentUsername);
+                ActiveConnections.Remove(currentUsername);
             }
+        }
+
+        private string ActiveUserDataForServerUse(NetworkStream stream, ExistingUserLogInRequest existingRequest)
+        {
+            string currentUsername = existingRequest.Username;
+            ActiveConnections[currentUsername] = stream;
+            return currentUsername;
+        }
+
+        private void ClientLoggedOutByPressingActualLogOut(TcpClient client, string currentUsername)
+        {
+            UserLogs.SetItem(currentUsername, DateTime.Now.ToString("yyyy-MM-dd-HH:mm:ss"));
+            ActiveConnections.Remove(currentUsername);
+            client.Close();
+            return;
+        }
+
+        private bool ServerDictionariesHoldingClientActivity(TcpClient client, NetworkStream stream, ref string currentUsername, LoginForClient loginRequest)
+        {
+            if (loginRequest.IsAccepted)
+            {
+                currentUsername = loginRequest.Username;
+                ActiveConnections[currentUsername] = stream;
+                BroadcastUserList();
+            }
+            else
+            {
+                client.Close();
+                return false;
+            }
+
+            return true;
         }
 
         public static void Main()
         {
             int port = 5000;
-            Random_User_ID masterIdManager = new Random_User_ID();
-
+            RandomUserID masterIdManager = new RandomUserID();
             TCPServer server = new TCPServer(port, masterIdManager);
-
             server.Start();
         }
     }

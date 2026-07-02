@@ -4,17 +4,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Server_for_ChatApp
+namespace ServerForChatApp
 {
-    internal static class Send_User_List
+    internal static class SendUserListForClient
     {
-        public static byte[] GenerateUserListPacket(Random_User_ID idManager)
+        public static byte[] GenerateUserListPacket(RandomUserID idManager)
         {
-            List<byte> packet = new List<byte> { 0x02 };            // user list message type
+            List<byte> packet = new List<byte> { (byte)MessageId.GET_USERS };            // user list message type
 
-            packet.Add((byte)idManager.User_ID_Dictionary.Count);   //amount of usernames in the dictionary
+            packet.Add((byte)idManager.UserIDDictionary.Count);   //amount of usernames in the dictionary
 
-            foreach (var user in idManager.User_ID_Dictionary)
+            foreach (var user in idManager.UserIDDictionary)
             {
                 byte userId = (byte)user.Key;
                 byte[] usernameBytes = Encoding.UTF8.GetBytes(user.Value);
