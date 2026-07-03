@@ -96,7 +96,7 @@ namespace ServerForChatApp
             }
         }
 
-
+        // Interface alabilir.
 
         public void SendPacket(NetworkStream stream, byte messageId, byte[] payload)
         {
@@ -181,6 +181,21 @@ namespace ServerForChatApp
                     {
                         case MessageId.LOG_IN:
                             {
+                                // Login mesajı gelmiş
+                                // Eğer gelen kişiyi kabul edeceksem, kayıt edeyim
+                                // LoginResponse mesajını sonuca göre oluşturayım 
+                                // Cevap döneyim
+
+                                // LoginRequest --> LoginRequest(payload)
+                                // LoginRequst.UserName kontrol etmem lazım
+                                // UserLogsa, kayıt edilebilir mi diye sor?
+                                // True - false dönsün
+                                // True case
+                                // UserLogs kişiyi kaydet idsini al.
+                                // LoginResponse(id, true) oluştur
+
+                                // False case
+                                // LoginResponse(false) oluştur.
 
                                 LoginForClient loginRequest = new LoginForClient(payload, idManager, UserLogs);
 
@@ -200,6 +215,11 @@ namespace ServerForChatApp
 
                         case MessageId.GET_USERS:
                             {
+                                // request = GetUserRequest(userId)
+                                // idManager.GetUserInfo() --> List<UserInfo>
+                                // UserInfo içeriği filtreler, requestUserId ile eşleşenleri çıkarır.
+                                // Mevcut liste ile response içeriğini oluşturur.
+
 
                                 GetUserListForClient listRequest = new GetUserListForClient(idManager);
 
@@ -351,10 +371,66 @@ namespace ServerForChatApp
 
         }
 
+        public interface IAnimal
+        {
+            string Sound();
+
+            int GetPawCount();
+
+            string GetName();
+        }
+
+
+        public class Dog 
+        {
+
+
+            public int GetPawCount()
+            {
+                return 4;
+            }
+
+            public string Sound()
+            {
+                return "Woof!";
+            }
+
+        }
+
+        public class Chicken : IAnimal
+        {
+            public int GetPawCount()
+            {
+                return 2;
+            }
+
+            public string Sound()
+            {
+                return "Cluck!";
+            }
+
+            public string GetName()
+            {
+                return "Chicken";
+            }
+        }
+
+        public static void PrintSound(IAnimal animal)
+        {
+            Console.WriteLine(animal.Sound());
+            Console.WriteLine(animal.GetPawCount());
+            Console.WriteLine(animal.GetName());
+        }
+
 
 
         public static void Main()
         {
+
+            //Dog dog = new Dog("Bal");
+            //Dog dog2 = new Dog("Daisy");
+            //Chicken cat = new Chicken();
+
 
             int port = 5000;
 
@@ -365,5 +441,14 @@ namespace ServerForChatApp
             server.Start();
 
         }
+
+        /// Idleri stringe çevirelim, name ile aynı verelim.
+        /// PersistentOflineMesasgeStoage storage = new OflineMesasgePersistentStoage("fileName");
+        /// PersistentOfflineMessageStorage <-->  AddNewMessageForUser(From - To - Data) | GetOfflineMessageForUser(userId) | ClearOfflineMesasgesForUser(userId)   : Server kapanırsa ve serverı tekrar açarsam meajlara erişim var.
+        /// TemporaryOfflineMessageStorage <--->   AddNewMessageForUser(From - To - Data) | GetOfflineMessageForUser(userId) | ClearOfflineMesasgesForUser(userId)  : Server kapanınca kayboluyor. In memory
+        /// IOfflineMessageStorage storage = new TermporayOfflineMessageStorage();
+        /// storage.GetOfflineMessageForUser(userId), storage.ClearOfflineMessagesForUser(userId);
+        /// storage.AddMewÖessageForUser(f, t, d);
+        /// Temporaryi hazırla,
     }
 }

@@ -4,8 +4,7 @@ using System.Text;
 
 namespace ServerForChatApp.Messages.ClientToServer
 {
-
-    internal class LoginForClient
+    internal class LoginForClient 
     {
 
         public string Username { get; private set; }

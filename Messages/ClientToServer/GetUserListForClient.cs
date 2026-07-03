@@ -10,11 +10,8 @@ namespace Server_for_ChatApp.Messages.ClientToServer
 
         private byte[] _userListPayload;
 
-
-
         public GetUserListForClient(RandomUserID idManager)
         {
-
             using (MemoryStream ms = new MemoryStream())
 
             using (BinaryWriter writer = new BinaryWriter(ms))
@@ -24,7 +21,6 @@ namespace Server_for_ChatApp.Messages.ClientToServer
 
                 foreach (var user in idManager.UserIDDictionary)
                 {
-
                     writer.Write((byte)user.Key); 
 
                     byte[] usernameBytes = Encoding.UTF8.GetBytes(user.Value);
