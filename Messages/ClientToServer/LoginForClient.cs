@@ -16,6 +16,10 @@ namespace ServerForChatApp.Messages.ClientToServer
             userLogs.AddItem(Username, "0000-00-00-00:00:00");
             IsAccepted = userLogs.GetItem(Username) != null;
         }
+        public byte GetId()
+        {
+            return (byte)MessageId.LOG_IN;
+        }
 
         public byte[] ToBytes()
         {

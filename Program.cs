@@ -1,5 +1,5 @@
-﻿using ServerForChatApp.Messages.ClientToServer;
-using ServerForChatApp.Messages.ServerToClient;
+﻿using Server_for_ChatApp.Messages.ClientToServer;
+using ServerForChatApp.Messages.ClientToServer;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -61,7 +61,7 @@ namespace ServerForChatApp
             {
                 try
                 {
-                    SendUserListToClient.SendUserListPacket(this, activeStream, listData);
+                    SendPacket(activeStream, listData.GetId(), listData.ToBytes());
                 }
                 catch (Exception)
                 {
@@ -125,9 +125,7 @@ namespace ServerForChatApp
                         case MessageId.LOG_IN:
                             {
                                 LoginForClient loginRequest = new LoginForClient(payload, _idManager, UserLogs);
-                                AuthenticateClient.SendAuthenticationPacket(this, stream, loginRequest);
-                                // byte[] data = loginRequest.ToBytes();
-                                //SendPacket(stream, loginRequest.GetId(), loginRequest.ToBytes());
+                                SendPacket(stream, loginRequest.GetId(), loginRequest.ToBytes());                                
 
                                 //Internal Server Logic, not sent to client
                                 bool flowControl = ServerDictionariesHoldingClientActivity(client, stream, ref currentUsername, loginRequest);
@@ -141,14 +139,26 @@ namespace ServerForChatApp
                         case MessageId.GET_USERS:
                             {
                                 GetUserListForClient getUserListForClient = new GetUserListForClient(payload, _idManager);
-                                SendUserListToClient.SendUserListPacket(this, stream, getUserListForClient);
+
+                                SendPacket(stream, getUserListForClient.GetId(), getUserListForClient.ToBytes());
                             }
                             break;
 
                         case MessageId.SEND_MESSAGE:
-                            {   
-                                SendMessageRequestFromClient createSendMessageRequestForClient = new SendMessageRequestFromClient(payload, _idManager, UserLogs);
-                                SendMessageToClient.SendMessageFromClientToClient(this, stream, _idManager, createSendMessageRequestForClient, ActiveConnections);
+                            {
+                                SendMessageRequestFromClient messageRequest = new SendMessageRequestFromClient(payload, _idManager);
+
+                                if (messageRequest.IsReceiverValid)
+                                {
+                                    if (ActiveConnections.TryGetValue(messageRequest.ReceiverUsername, out NetworkStream receiverStream))
+                                    {
+                                        SendPacket(receiverStream, messageRequest.GetId(), messageRequest.ToBytes());
+                                    }
+                                    else
+                                    {
+                                        messageRequest.SaveToOfflineVault();
+                                    }
+                                }
                             }
                             break;
 
@@ -165,14 +175,12 @@ namespace ServerForChatApp
                                 if (existingRequest.IsValid)
                                 {
                                     currentUsername = ActiveUserDataForServerUse(stream, existingRequest);
-
-                                    AuthenticateClient.SendAuthenticationPacket(this, stream, existingRequest);
-
+                                    SendPacket(stream, existingRequest.GetId(), existingRequest.ToBytes());
                                     BroadcastUserList();
                                 }
                                 else
                                 {
-                                    AuthenticateClient.SendAuthenticationPacket(this, stream, existingRequest);
+                                    SendPacket(stream, existingRequest.GetId(), existingRequest.ToBytes());
                                     client.Close();
                                     return;
                                 }
@@ -182,7 +190,11 @@ namespace ServerForChatApp
                         case MessageId.FETCH_OFFLINE_MESSAGES:
                             {
                                 FetchOfflineMessagesForClient fetchRequest = new FetchOfflineMessagesForClient(payload);
-                                SendOfflineMessagesToClient.SendMessages(this, stream, fetchRequest);
+
+                                foreach (byte[] msgPayload in fetchRequest.ReadyToSendPayloads)
+                                {
+                                    SendPacket(stream, fetchRequest.GetId(), msgPayload);
+                                }
                             }
                             break;
                     }

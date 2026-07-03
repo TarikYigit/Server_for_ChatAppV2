@@ -1,16 +1,14 @@
 ﻿using ServerForChatApp;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace ServerForChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ClientToServer
 {
     internal class GetUserListForClient
-    {   
+    {
         public byte RequesterId { get; private set; }
-        public byte[] UserListPayload { get; private set; }
+        private byte[] _userListPayload;
 
         public GetUserListForClient(byte[] payload, RandomUserID idManager)
         {
@@ -20,7 +18,6 @@ namespace ServerForChatApp.Messages.ClientToServer
             }
 
             List<byte> packetList = new List<byte>();
-
             packetList.Add((byte)idManager.UserIDDictionary.Count);
 
             foreach (var user in idManager.UserIDDictionary)
@@ -40,7 +37,17 @@ namespace ServerForChatApp.Messages.ClientToServer
                 }
             }
 
-            UserListPayload = packetList.ToArray();
+            _userListPayload = packetList.ToArray();
+        }
+
+        public byte GetId()
+        {
+            return (byte)MessageId.GET_USERS;
+        }
+
+        public byte[] ToBytes()
+        {
+            return _userListPayload;
         }
     }
 }

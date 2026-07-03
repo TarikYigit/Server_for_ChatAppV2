@@ -1,7 +1,7 @@
 ﻿using ServerForChatApp;
 using System.Text;
 
-namespace ServerForChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ClientToServer
 {
     internal class ExistingUserLogInRequest
     {
@@ -13,6 +13,7 @@ namespace ServerForChatApp.Messages.ClientToServer
         {
             Username = Encoding.UTF8.GetString(payload);
             IsValid = false;
+
             foreach (var kvp in idManager.UserIDDictionary)
             {
                 if (kvp.Value == Username)
@@ -21,6 +22,23 @@ namespace ServerForChatApp.Messages.ClientToServer
                     IsValid = true;
                     break;
                 }
+            }
+        }
+
+        public byte GetId()
+        {
+            return (byte)MessageId.LOG_IN;
+        }
+
+        public byte[] ToBytes()
+        {
+            if (IsValid)
+            {
+                return new byte[] { 0x01, (byte)LoggedInUserId };
+            }
+            else
+            {
+                return new byte[] { 0x02 };
             }
         }
     }
