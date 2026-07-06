@@ -6,32 +6,16 @@ using System.Text;
 namespace ServerForChatApp.Messages.ClientToServer
 {
 
-    internal class FetchOfflineMessagesForClient
+    internal class FetchOfflineMessagesForClient 
     {
-
-        public byte RequesterId { get; private set; }
-
         public List<byte[]> ReadyToSendPayloads { get; private set; } = new List<byte[]>();
 
 
 
-        public FetchOfflineMessagesForClient(byte[] payload)
+        public FetchOfflineMessagesForClient(byte[] payload, byte requesterID)
         {
 
-            if (payload != null && payload.Length > 0)
-            {
-
-                using (MemoryStream payloadStream = new MemoryStream(payload))
-
-                using (BinaryReader reader = new BinaryReader(payloadStream))
-                {
-
-                    RequesterId = reader.ReadByte();
-
-                }
-            }
-
-            List<string> rawOfflineMessages = CheckOfflineMessages.GetAndRemoveMessages(RequesterId);
+            List<string> rawOfflineMessages = CheckOfflineMessages.GetAndRemoveMessages(requesterID);
 
 
             foreach (string line in rawOfflineMessages)
@@ -59,8 +43,6 @@ namespace ServerForChatApp.Messages.ClientToServer
                 }
             }
         }
-
-
 
         public byte GetId()
         {

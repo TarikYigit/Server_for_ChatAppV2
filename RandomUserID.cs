@@ -5,7 +5,7 @@ namespace ServerForChatApp
 {
     internal class RandomUserID
     {
-        public Dictionary<int, string> UserIDDictionary;
+        public Dictionary<int, string> UserIDDictionary { get; private set; }
 
         private Random _random;
 
@@ -13,8 +13,11 @@ namespace ServerForChatApp
 
         public RandomUserID() 
         {
+
             UserIDDictionary = new Dictionary<int, string>();
+
             _random = new Random();
+
         }
 
 
@@ -57,5 +60,7 @@ namespace ServerForChatApp
                 }
             }
         }
+
+
     }
 }

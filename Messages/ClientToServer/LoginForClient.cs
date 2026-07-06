@@ -1,10 +1,11 @@
-﻿using ServerForChatApp;
+﻿using Server_for_ChatApp.Messages.ClientToServer;
+using ServerForChatApp;
 using System.IO;
 using System.Text;
 
 namespace ServerForChatApp.Messages.ClientToServer
 {
-    internal class LoginForClient 
+    internal class LoginForClient : INetworkMessage
     {
 
         public string Username { get; private set; }
@@ -13,16 +14,21 @@ namespace ServerForChatApp.Messages.ClientToServer
 
         public bool IsAccepted { get; private set; }
 
-        public LoginForClient(byte[] payload, RandomUserID idManager, UserDictionary userLogs)
+        public LoginForClient(byte[] payload, RandomUserID idManager, UserDictionary userLogs, bool isAccepted)
         {
 
-            Username = Encoding.UTF8.GetString(payload);
+            if (isAccepted)
+            {
+                Username = Encoding.UTF8.GetString(payload);
 
-            AssignedId = idManager.GenerateRandomUserID(Username);
+                AssignedId = idManager.GenerateRandomUserID(Username);
 
-            userLogs.AddItem(Username, "0000-00-00-00:00:00");
+                userLogs.AddItem(Username, "0000-00-00-00:00:00");
 
-            IsAccepted = userLogs.GetItem(Username) != null;
+            }
+
+            IsAccepted = isAccepted;
+
 
         }
 

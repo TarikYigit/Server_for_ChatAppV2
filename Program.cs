@@ -1,4 +1,5 @@
 ﻿using Server_for_ChatApp.Messages.ClientToServer;
+using ServerForChatApp.Messages;
 using ServerForChatApp.Messages.ClientToServer;
 using System;
 using System.Collections.Generic;
@@ -7,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using ServerForChatApp;
 
 namespace ServerForChatApp
 {
@@ -27,7 +29,6 @@ namespace ServerForChatApp
 
     }
 
-
     class TCPServer
     {
 
@@ -41,7 +42,7 @@ namespace ServerForChatApp
 
         public Dictionary<string, NetworkStream> ActiveConnections = new Dictionary<string, NetworkStream>();
 
-
+        public IOfflineMessageStorage OfflineStorage = new TemporaryOfflineMessageStorage();
 
         public TCPServer(int port, RandomUserID idManager)
         {
@@ -77,26 +78,45 @@ namespace ServerForChatApp
 
         public void BroadcastUserList()
         {
+            GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
 
-            GetUserListForClient listRequest = new GetUserListForClient(idManager);
+            var connectionsSnapshot = ActiveConnections.ToList();
 
-            foreach (var activeStream in ActiveConnections.Values.ToList())
+            foreach (var connection in connectionsSnapshot)
             {
+                string targetUsername = connection.Key;
+                NetworkStream targetStream = connection.Value;
+
+                byte targetUserId = 0;
+
+                lock (idManager.UserIDDictionary)
+                {
+                    foreach (var kvp in idManager.UserIDDictionary)
+                    {
+                        if (kvp.Value == targetUsername)
+                        {
+                            targetUserId = (byte)kvp.Key;
+                            break;
+                        }
+                    }
+                }
+
+                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, targetUserId);
+
+                GetUserListResponse listResponse = new GetUserListResponse(filteredUsers);
 
                 try
                 {
-
-                    SendPacket(activeStream, listRequest.GetId(), listRequest.ToBytes());
-
+                    INetworkMessage message = listResponse;
+                    SendPacket(targetStream, message.GetId(), message.ToBytes());
                 }
                 catch (Exception)
                 {
-
                 }
             }
         }
 
-        // Interface alabilir.
+
 
         public void SendPacket(NetworkStream stream, byte messageId, byte[] payload)
         {
@@ -181,32 +201,25 @@ namespace ServerForChatApp
                     {
                         case MessageId.LOG_IN:
                             {
-                                // Login mesajı gelmiş
-                                // Eğer gelen kişiyi kabul edeceksem, kayıt edeyim
-                                // LoginResponse mesajını sonuca göre oluşturayım 
-                                // Cevap döneyim
 
-                                // LoginRequest --> LoginRequest(payload)
-                                // LoginRequst.UserName kontrol etmem lazım
-                                // UserLogsa, kayıt edilebilir mi diye sor?
-                                // True - false dönsün
-                                // True case
-                                // UserLogs kişiyi kaydet idsini al.
-                                // LoginResponse(id, true) oluştur
+                                GetCopyOfUserDictionaryOnlyNames dictionaryCopier = new GetCopyOfUserDictionaryOnlyNames();
 
-                                // False case
-                                // LoginResponse(false) oluştur.
+                                List<string> usernameList = dictionaryCopier.GetUsernames(UserLogs.UserLogData);
 
-                                LoginForClient loginRequest = new LoginForClient(payload, idManager, UserLogs);
+                                LoginRequest loginRequest = new LoginRequest(payload, usernameList);
 
-                                SendPacket(stream, loginRequest.GetId(), loginRequest.ToBytes());
+                                LoginForClient loginResponse = new LoginForClient(payload, idManager, UserLogs, loginRequest.GetAccepted());
+
+                                INetworkMessage message = loginResponse;
+
+                                SendPacket(stream, message.GetId(), message.ToBytes());
 
                                 //Internal Server Logic, not sent to client
-                                bool flowControl = ServerDictionariesHoldingClientActivity(client, stream, ref currentUsername, loginRequest);
+                                bool flowControl = ServerDictionariesHoldingClientActivity(client, stream, ref currentUsername, loginResponse);
 
                                 if (!flowControl)
                                 {
-
+                                        
                                     return;
 
                                 }
@@ -215,15 +228,18 @@ namespace ServerForChatApp
 
                         case MessageId.GET_USERS:
                             {
-                                // request = GetUserRequest(userId)
-                                // idManager.GetUserInfo() --> List<UserInfo>
-                                // UserInfo içeriği filtreler, requestUserId ile eşleşenleri çıkarır.
-                                // Mevcut liste ile response içeriğini oluşturur.
 
+                                GetUserListRequest request = new GetUserListRequest(payload);
 
-                                GetUserListForClient listRequest = new GetUserListForClient(idManager);
+                                GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
 
-                                SendPacket(stream, listRequest.GetId(), listRequest.ToBytes());
+                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, request.RequesterId);
+
+                                GetUserListResponse response = new GetUserListResponse(filteredUsers);
+
+                                INetworkMessage message = response;
+
+                                SendPacket(stream, message.GetId(), message.ToBytes());
 
                             }
                             break;
@@ -231,21 +247,33 @@ namespace ServerForChatApp
                         case MessageId.SEND_MESSAGE:
                             {
 
-                                SendMessageRequestFromClient messageRequest = new SendMessageRequestFromClient(payload, idManager);
+                                MessageDataGet messageData = new MessageDataGet(payload);
 
-                                if (messageRequest.IsReceiverValid)
+                                GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
+
+                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, messageData.GetSenderId());
+    
+                                MessageValid doesRecieverExist = new MessageValid(messageData.GetReceiverId(), filteredUsers);
+
+                                MessageSendNowRequest routingRequest = new MessageSendNowRequest(doesRecieverExist.GetIsReceiverValid(), ActiveConnections, doesRecieverExist.GetReceiverUsername());
+
+                                MakeMessageToBeSentToClient formattedMessage = new MakeMessageToBeSentToClient(messageData);
+
+                                if (routingRequest.SendNow)
                                 {
 
-                                    if (ActiveConnections.TryGetValue(messageRequest.ReceiverUsername, out NetworkStream receiverStream))
+                                    INetworkMessage message = formattedMessage;
+
+                                    SendPacket(routingRequest.ReceiverStream, message.GetId(), message.ToBytes());
+
+                                }
+                                else
+                                {
+
+                                    if (doesRecieverExist.GetIsReceiverValid())
                                     {
 
-                                        SendPacket(receiverStream, messageRequest.GetId(), messageRequest.ToBytes());
-
-                                    }
-                                    else
-                                    {
-
-                                        messageRequest.SaveToOfflineVault();
+                                        OfflineStorage.AddNewMessageForUser(messageData.GetSenderId(), messageData.GetReceiverId(), messageData.GetMessageBytes());
 
                                     }
                                 }
@@ -262,15 +290,24 @@ namespace ServerForChatApp
                             }
 
                         case MessageId.EXISTING_USER_LOG_IN:
-                            {
-                                ExistingUserLogInRequest existingRequest = new ExistingUserLogInRequest(payload, idManager);
+                            {   
+
+                                ExistingUserLogInRequest existingUserLoginRequest = new ExistingUserLogInRequest(payload);
+
+                                GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
+
+                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, 00);
+
+                                ExistingUserLogInResponse existingRequest = new ExistingUserLogInResponse(existingUserLoginRequest.GetUsername(), filteredUsers);
+
+                                INetworkMessage message = existingRequest;
 
                                 if (existingRequest.IsValid)
                                 {
 
-                                    currentUsername = ActiveUserDataForServerUse(stream, existingRequest);
+                                    currentUsername = ActiveUserDataForServerUse(stream, existingUserLoginRequest.GetUsername());
 
-                                    SendPacket(stream, existingRequest.GetId(), existingRequest.ToBytes());
+                                    SendPacket(stream, message.GetId(), message.ToBytes());
 
                                     BroadcastUserList();
 
@@ -278,27 +315,30 @@ namespace ServerForChatApp
                                 else
                                 {
 
-                                    SendPacket(stream, existingRequest.GetId(), existingRequest.ToBytes());
+                                    SendPacket(stream, message.GetId(), message.ToBytes());
 
                                     client.Close();
 
                                     return;
-
                                 }
                             }
                             break;
 
                         case MessageId.FETCH_OFFLINE_MESSAGES:
                             {
+                                FetchOfflineMessageRequest fetch = new FetchOfflineMessageRequest(payload);
+                                byte userId = fetch.GetUserID();
 
-                                FetchOfflineMessagesForClient fetchRequest = new FetchOfflineMessagesForClient(payload);
+                                List<byte[]> offlineMessages = OfflineStorage.GetOfflineMessagesForUser(userId);
 
-                                foreach (byte[] msgPayload in fetchRequest.ReadyToSendPayloads)
+                                foreach (byte[] msgPayload in offlineMessages)
                                 {
 
-                                    SendPacket(stream, fetchRequest.GetId(), msgPayload);
+                                    SendPacket(stream, (byte)MessageId.SEND_MESSAGE, msgPayload);
 
                                 }
+
+                                OfflineStorage.ClearOfflineMessagesForUser(userId);
                             }
                             break;
 
@@ -315,14 +355,12 @@ namespace ServerForChatApp
 
 
 
-        private string ActiveUserDataForServerUse(NetworkStream stream, ExistingUserLogInRequest existingRequest)
+        private string ActiveUserDataForServerUse(NetworkStream stream, string username)
         {
 
-            string currentUsername = existingRequest.Username;
+            ActiveConnections[username] = stream;
 
-            ActiveConnections[currentUsername] = stream;
-
-            return currentUsername;
+            return username;
 
         }
 
@@ -368,69 +406,12 @@ namespace ServerForChatApp
             }
 
             return true;
-
-        }
-
-        public interface IAnimal
-        {
-            string Sound();
-
-            int GetPawCount();
-
-            string GetName();
-        }
-
-
-        public class Dog 
-        {
-
-
-            public int GetPawCount()
-            {
-                return 4;
-            }
-
-            public string Sound()
-            {
-                return "Woof!";
-            }
-
-        }
-
-        public class Chicken : IAnimal
-        {
-            public int GetPawCount()
-            {
-                return 2;
-            }
-
-            public string Sound()
-            {
-                return "Cluck!";
-            }
-
-            public string GetName()
-            {
-                return "Chicken";
-            }
-        }
-
-        public static void PrintSound(IAnimal animal)
-        {
-            Console.WriteLine(animal.Sound());
-            Console.WriteLine(animal.GetPawCount());
-            Console.WriteLine(animal.GetName());
         }
 
 
 
         public static void Main()
         {
-
-            //Dog dog = new Dog("Bal");
-            //Dog dog2 = new Dog("Daisy");
-            //Chicken cat = new Chicken();
-
 
             int port = 5000;
 
@@ -441,14 +422,5 @@ namespace ServerForChatApp
             server.Start();
 
         }
-
-        /// Idleri stringe çevirelim, name ile aynı verelim.
-        /// PersistentOflineMesasgeStoage storage = new OflineMesasgePersistentStoage("fileName");
-        /// PersistentOfflineMessageStorage <-->  AddNewMessageForUser(From - To - Data) | GetOfflineMessageForUser(userId) | ClearOfflineMesasgesForUser(userId)   : Server kapanırsa ve serverı tekrar açarsam meajlara erişim var.
-        /// TemporaryOfflineMessageStorage <--->   AddNewMessageForUser(From - To - Data) | GetOfflineMessageForUser(userId) | ClearOfflineMesasgesForUser(userId)  : Server kapanınca kayboluyor. In memory
-        /// IOfflineMessageStorage storage = new TermporayOfflineMessageStorage();
-        /// storage.GetOfflineMessageForUser(userId), storage.ClearOfflineMessagesForUser(userId);
-        /// storage.AddMewÖessageForUser(f, t, d);
-        /// Temporaryi hazırla,
     }
 }
