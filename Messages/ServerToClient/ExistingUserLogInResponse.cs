@@ -3,7 +3,7 @@ using ServerForChatApp.Messages;
 using System.IO;
 using System.Text;
 
-namespace Server_for_ChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class ExistingUserLogInResponse : INetworkMessage
     {

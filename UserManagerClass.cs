@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace ServerForChatApp
 {
-    internal class RandomUserID
+    internal class UserManagerClass
     {
         public Dictionary<int, string> UserIDDictionary { get; private set; }
 
@@ -11,7 +11,7 @@ namespace ServerForChatApp
 
 
 
-        public RandomUserID() 
+        public UserManagerClass() 
         {
 
             UserIDDictionary = new Dictionary<int, string>();
@@ -42,6 +42,21 @@ namespace ServerForChatApp
 
         }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        //Random process to assign ID's to new users -- 00 is assumed to be server and is thus not avaliable
         public int GenerateRandomUserID(string username)
         {
 

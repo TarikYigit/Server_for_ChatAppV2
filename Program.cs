@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using ServerForChatApp;
+using Server_for_ChatApp.Messages.ServerToClient;
 
 namespace ServerForChatApp
 {
@@ -36,20 +37,20 @@ namespace ServerForChatApp
 
         private bool isRunning;
 
-        public RandomUserID idManager;
+        public UserManagerClass UserIdManager;
 
         UserDictionary UserLogs = new UserDictionary();
 
         public Dictionary<string, NetworkStream> ActiveConnections = new Dictionary<string, NetworkStream>();
 
-        public IOfflineMessageStorage OfflineStorage = new TemporaryOfflineMessageStorage();
+        public IOfflineMessageStorage OfflineStorage = new PermanentOfflineMessageStorage();
 
-        public TCPServer(int port, RandomUserID idManager)
+        public TCPServer(int port, UserManagerClass idManager)
         {
 
             listener = new TcpListener(IPAddress.Loopback, port);
 
-            this.idManager = idManager;
+            this.UserIdManager = idManager;
 
         }
 
@@ -89,9 +90,9 @@ namespace ServerForChatApp
 
                 byte targetUserId = 0;
 
-                lock (idManager.UserIDDictionary)
+                lock (UserIdManager.UserIDDictionary)
                 {
-                    foreach (var kvp in idManager.UserIDDictionary)
+                    foreach (var kvp in UserIdManager.UserIDDictionary)
                     {
                         if (kvp.Value == targetUsername)
                         {
@@ -101,7 +102,7 @@ namespace ServerForChatApp
                     }
                 }
 
-                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, targetUserId);
+                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, targetUserId);
 
                 GetUserListResponse listResponse = new GetUserListResponse(filteredUsers);
 
@@ -114,6 +115,11 @@ namespace ServerForChatApp
                 {
                 }
             }
+        }
+
+        public void SendPacket(NetworkStream stream, INetworkMessage message)
+        {
+            SendPacket(stream, message.GetId(), message.ToBytes());
         }
 
 
@@ -208,7 +214,7 @@ namespace ServerForChatApp
 
                                 LoginRequest loginRequest = new LoginRequest(payload, usernameList);
 
-                                LoginForClient loginResponse = new LoginForClient(payload, idManager, UserLogs, loginRequest.GetAccepted());
+                                LoginForClient loginResponse = new LoginForClient(payload, UserIdManager, UserLogs, loginRequest.GetAccepted());
 
                                 INetworkMessage message = loginResponse;
 
@@ -233,25 +239,26 @@ namespace ServerForChatApp
 
                                 GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
 
-                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, request.RequesterId);
+                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, request.RequesterId);
 
                                 GetUserListResponse response = new GetUserListResponse(filteredUsers);
 
-                                INetworkMessage message = response;
-
-                                SendPacket(stream, message.GetId(), message.ToBytes());
+                                SendPacket(stream, response);
 
                             }
                             break;
 
                         case MessageId.SEND_MESSAGE:
                             {
+                                // UserManger --> UserListesi var. User ekleyebiliyoruz, silebiliyoruz, userlistesi öğrenebiliyoruz, user filtreleyebiliyoruz, user sorgulayabiliyoruz.
+                                // ConnectionManager --> Connection Listesi, connecion sorgulayabiliyoruz.
+                                // Oflinestorage
 
                                 MessageDataGet messageData = new MessageDataGet(payload);
 
                                 GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
 
-                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, messageData.GetSenderId());
+                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, messageData.GetSenderId());
     
                                 MessageValid doesRecieverExist = new MessageValid(messageData.GetReceiverId(), filteredUsers);
 
@@ -284,7 +291,6 @@ namespace ServerForChatApp
                             {
 
                                 ClientLoggedOutByPressingActualLogOut(client, currentUsername);
-
                                 return;
 
                             }
@@ -296,7 +302,7 @@ namespace ServerForChatApp
 
                                 GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
 
-                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(idManager.UserIDDictionary, 00);
+                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, 00);
 
                                 ExistingUserLogInResponse existingRequest = new ExistingUserLogInResponse(existingUserLoginRequest.GetUsername(), filteredUsers);
 
@@ -327,7 +333,7 @@ namespace ServerForChatApp
                         case MessageId.FETCH_OFFLINE_MESSAGES:
                             {
                                 FetchOfflineMessageRequest fetch = new FetchOfflineMessageRequest(payload);
-                                byte userId = fetch.GetUserID();
+                                byte userId = fetch.RequesterId;
 
                                 List<byte[]> offlineMessages = OfflineStorage.GetOfflineMessagesForUser(userId);
 
@@ -415,7 +421,7 @@ namespace ServerForChatApp
 
             int port = 5000;
 
-            RandomUserID masterIdManager = new RandomUserID();
+            UserManagerClass masterIdManager = new UserManagerClass();
 
             TCPServer server = new TCPServer(port, masterIdManager);
 

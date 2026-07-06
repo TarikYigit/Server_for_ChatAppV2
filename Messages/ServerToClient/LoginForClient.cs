@@ -1,9 +1,10 @@
 ﻿using Server_for_ChatApp.Messages.ClientToServer;
 using ServerForChatApp;
+using ServerForChatApp.Messages;
 using System.IO;
 using System.Text;
 
-namespace ServerForChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class LoginForClient : INetworkMessage
     {
@@ -14,7 +15,7 @@ namespace ServerForChatApp.Messages.ClientToServer
 
         public bool IsAccepted { get; private set; }
 
-        public LoginForClient(byte[] payload, RandomUserID idManager, UserDictionary userLogs, bool isAccepted)
+        public LoginForClient(byte[] payload, UserManagerClass idManager, UserDictionary userLogs, bool isAccepted)
         {
 
             if (isAccepted)
@@ -33,14 +34,12 @@ namespace ServerForChatApp.Messages.ClientToServer
         }
 
 
-
         public byte GetId()
         {
 
             return (byte)MessageId.LOG_IN;
 
         }
-
 
 
         public byte[] ToBytes()

@@ -21,11 +21,6 @@ namespace ServerForChatApp.Messages.ClientToServer
             }
         }
 
-        public byte GetUserID()
-        {
-
-            return RequesterId;
-
-        }
+    
     }
 }

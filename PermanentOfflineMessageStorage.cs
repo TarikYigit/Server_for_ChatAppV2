@@ -7,7 +7,7 @@ namespace ServerForChatApp
     public class PermanentOfflineMessageStorage : IOfflineMessageStorage
     {
 
-        private string _file = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Playground\Message_Save.txt";
+        private string myFile = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Playground\Message_Save.txt";
 
         public void AddNewMessageForUser(byte fromId, byte toId, byte[] data)
         {
@@ -16,7 +16,7 @@ namespace ServerForChatApp
 
             string line = $"{fromId} {toId} {base64Data}";
 
-            File.AppendAllLines(_file, new[] { line });
+            File.AppendAllLines(myFile, new[] { line });
 
         }
 
@@ -25,9 +25,9 @@ namespace ServerForChatApp
 
             List<byte[]> userMessages = new List<byte[]>();
 
-            if (!File.Exists(_file)) return userMessages;
+            if (!File.Exists(myFile)) return userMessages;
 
-            string[] allLines = File.ReadAllLines(_file);
+            string[] allLines = File.ReadAllLines(myFile);
 
             foreach (var line in allLines)
             {
@@ -42,7 +42,7 @@ namespace ServerForChatApp
 
                         byte senderId = byte.Parse(parts[0]);
 
-                        byte receiverId = byte.Parse(parts[1]); // We still read it from the file to know who it belongs to
+                        byte receiverId = byte.Parse(parts[1]); 
 
                         byte[] textData = Convert.FromBase64String(parts[2]);
 
@@ -71,9 +71,9 @@ namespace ServerForChatApp
         public void ClearOfflineMessagesForUser(byte userId)
         {
 
-            if (!File.Exists(_file)) return;
+            if (!File.Exists(myFile)) return;
 
-            string[] allLines = File.ReadAllLines(_file);
+            string[] allLines = File.ReadAllLines(myFile);
 
             List<string> linesToKeep = new List<string>();
 
@@ -92,7 +92,7 @@ namespace ServerForChatApp
                 linesToKeep.Add(line);
             }
 
-            File.WriteAllLines(_file, linesToKeep);
+            File.WriteAllLines(myFile, linesToKeep);
         }
     }
 }

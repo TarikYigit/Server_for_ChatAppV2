@@ -10,7 +10,7 @@ namespace ServerForChatApp
     internal static class SendUserListForClient
     {
 
-        public static byte[] GenerateUserListPacket(RandomUserID idManager)
+        public static byte[] GenerateUserListPacket(UserManagerClass idManager)
         {
 
             List<byte> packet = new List<byte> { (byte)MessageId.GET_USERS };            // user list message type

@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using ServerForChatApp;
+using ServerForChatApp.Messages;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace ServerForChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class GetUserListResponse : INetworkMessage
     {

@@ -1,10 +1,11 @@
-﻿using ServerForChatApp;
+﻿using Server_for_ChatApp.Messages.ClientToServer;
+using ServerForChatApp;
 using ServerForChatApp.Messages;
 using System;
 using System.IO;
 using System.Text;
 
-namespace Server_for_ChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class MakeMessageToBeSentToClient : INetworkMessage
     {
