@@ -3,6 +3,7 @@ using System.Net.Sockets;
 
 namespace Server_for_ChatApp.ConnectionManagers
 {
+
     public class ConnectionManager
     {
         private Dictionary<int, NetworkStream> _activeConnections;

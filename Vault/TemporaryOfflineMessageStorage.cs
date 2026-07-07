@@ -1,8 +1,9 @@
-﻿using System;
+﻿using Server_for_ChatApp.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace ServerForChatApp
+namespace Server_for_ChatApp.Vault
 {
     public class TemporaryOfflineMessageStorage : IOfflineMessageStorage
     {

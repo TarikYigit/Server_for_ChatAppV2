@@ -1,6 +1,6 @@
-﻿using Server_for_ChatApp.UserManagers;
+﻿using Server_for_ChatApp.Interfaces;
+using Server_for_ChatApp.UserManagers;
 using ServerForChatApp;
-using ServerForChatApp.Messages;
 using System.IO;
 
 namespace Server_for_ChatApp.Messages.ServerToClient

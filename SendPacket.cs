@@ -1,5 +1,5 @@
 ﻿using Server_for_ChatApp.ConnectionManagers;
-using ServerForChatApp.Messages;
+using Server_for_ChatApp.Interfaces;
 using System.IO;
 using System.Net.Sockets;
 

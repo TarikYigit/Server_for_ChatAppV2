@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace ServerForChatApp
+namespace Server_for_ChatApp.Interfaces
 {
     public interface IOfflineMessageStorage
     {

@@ -1,6 +1,6 @@
-﻿using Server_for_ChatApp.UserManagers;
+﻿using Server_for_ChatApp.Interfaces;
+using Server_for_ChatApp.UserManagers;
 using ServerForChatApp;
-using ServerForChatApp.Messages;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -54,3 +54,37 @@ namespace Server_for_ChatApp.Messages.ServerToClient
         }
     }
 }
+
+
+// State 1: Unauthorized  --> Login  State 2: Authorized
+// State 2: Authorized --> Logout State 1: Unauthorized
+
+
+/* StateMachine(Users)
+ * 
+ * IResponse ExecuteMessage(INetworRequest message)
+ * 
+ * Enum state = unauthorized;
+ * 
+ * 
+ * switch(state)
+ *     case state1:
+ *      switch(message):
+ *          case message_1:
+ *              LoginRequest request = (LoginRequest)(message); 
+ *              X işlemini yap
+ *              changeToState2
+ *           default:
+ *              return EmptyResponse()
+ *     case state2:
+ *          case message_1:
+ *          case message2:
+ *              
+ *          default:
+ *              return EmptyResponse()
+ * 
+ * 
+ * 
+ * 
+ * 
+ * */

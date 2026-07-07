@@ -1,7 +1,7 @@
-﻿using Server_for_ChatApp.Messages.ClientToServer;
+﻿using Server_for_ChatApp.Interfaces;
+using Server_for_ChatApp.Messages.ClientToServer;
 using Server_for_ChatApp.UserManagers;
 using ServerForChatApp;
-using ServerForChatApp.Messages;
 using System.IO;
 using System.Text;
 

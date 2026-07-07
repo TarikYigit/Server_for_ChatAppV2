@@ -1,10 +1,10 @@
 ﻿using Server_for_ChatApp;
+using Server_for_ChatApp.Vault;
 using Server_for_ChatApp.ConnectionManagers;
 using Server_for_ChatApp.Messages.ClientToServer;
 using Server_for_ChatApp.Messages.ServerInternals;
 using Server_for_ChatApp.Messages.ServerToClient;
 using Server_for_ChatApp.UserManagers;
-using ServerForChatApp.Messages;
 using ServerForChatApp.Messages.ClientToServer;
 using System;
 using System.Collections.Generic;
@@ -14,6 +14,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
+using Server_for_ChatApp.Interfaces;
 
 namespace ServerForChatApp
 {
@@ -106,7 +107,7 @@ namespace ServerForChatApp
         }
 
         public void HandleClient(TcpClient client)
-        {
+        {   //state machine here
 
             NetworkStream stream = client.GetStream();
 
@@ -160,7 +161,10 @@ namespace ServerForChatApp
 
                                 LoginRequest loginRequest = new LoginRequest(payload);
 
+                                // State makinesine ExecuteMessage(request);
+
                                 UserInfo existingUser = Users.GetUserByName(loginRequest.Username);
+
 
                                 if (existingUser == null)
                                 {
@@ -222,7 +226,7 @@ namespace ServerForChatApp
                                     if (routingRequest.SendNow)
                                     {
 
-                                        MakeMessageToBeSentToClient formattedMessage = new MakeMessageToBeSentToClient(messageData);
+                                        MessageResponse formattedMessage = new MessageResponse(messageData);
 
                                         INetworkMessage message = formattedMessage;
 
@@ -232,7 +236,7 @@ namespace ServerForChatApp
                                     else
                                     {
 
-                                        MakeMessageToBeSentToClient formattedMessage = new MakeMessageToBeSentToClient(messageData);
+                                        MessageResponse formattedMessage = new MessageResponse(messageData);
 
                                         OfflineStorage.AddNewMessageForUser((byte)messageData.GetSenderId(), (byte)messageData.GetReceiverId(), formattedMessage.ToBytes());
                                     }
@@ -311,14 +315,6 @@ namespace ServerForChatApp
             }
         }
 
-        private string ActiveUserDataForServerUse(NetworkStream stream, string username)
-        {
-
-            ActiveConnections[username] = stream;
-
-            return username;
-
-        }
 
         public static void Main()
         {
