@@ -1,7 +1,7 @@
 ﻿using ServerForChatApp;
 using System.Collections.Generic;
 
-namespace Server_for_ChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ServerInternals
 {
     internal class MessageValid
     {

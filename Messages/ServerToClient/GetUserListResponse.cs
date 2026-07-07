@@ -1,4 +1,5 @@
-﻿using ServerForChatApp;
+﻿using Server_for_ChatApp.UserManagers;
+using ServerForChatApp;
 using ServerForChatApp.Messages;
 using System.Collections.Generic;
 using System.IO;
@@ -8,25 +9,24 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class GetUserListResponse : INetworkMessage
     {
+
         private byte[] _userListPayload;
 
-        public GetUserListResponse(Dictionary<int, string> filteredUsers)
+        public GetUserListResponse(List<UserInfo> userList)
         {
 
             using (MemoryStream ms = new MemoryStream())
 
             using (BinaryWriter writer = new BinaryWriter(ms))
-
             {
+                writer.Write((byte)userList.Count);
 
-                writer.Write((byte)filteredUsers.Count);
-
-                foreach (var user in filteredUsers)
+                foreach (UserInfo user in userList)
                 {
 
-                    writer.Write((byte)user.Key);
+                    writer.Write((byte)user.ID); 
 
-                    byte[] nameBytes = Encoding.UTF8.GetBytes(user.Value);
+                    byte[] nameBytes = Encoding.UTF8.GetBytes(user.username);
 
                     writer.Write((byte)nameBytes.Length);
 

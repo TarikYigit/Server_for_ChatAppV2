@@ -1,7 +1,7 @@
 ﻿using ServerForChatApp;
 using System.IO;
 
-namespace Server_for_ChatApp.Messages.ClientToServer
+namespace Server_for_ChatApp.Messages.ServerInternals
 {
     internal class MessageDataGet
     {

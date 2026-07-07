@@ -15,7 +15,7 @@ namespace ServerForChatApp
             string base64Data = Convert.ToBase64String(data);
 
             string line = $"{fromId} {toId} {base64Data}";
-
+            Console.WriteLine(line );
             File.AppendAllLines(myFile, new[] { line });
 
         }
@@ -46,18 +46,7 @@ namespace ServerForChatApp
 
                         byte[] textData = Convert.FromBase64String(parts[2]);
 
-                        using (MemoryStream ms = new MemoryStream())
-
-                        using (BinaryWriter writer = new BinaryWriter(ms))
-                        {
-
-                            writer.Write(senderId);
-
-                            writer.Write(textData); 
-
-                            userMessages.Add(ms.ToArray());
-
-                        }
+                        userMessages.Add(textData);
                     }
                     catch (Exception ex)
                     {

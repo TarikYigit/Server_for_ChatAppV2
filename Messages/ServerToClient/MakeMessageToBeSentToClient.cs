@@ -1,4 +1,4 @@
-﻿using Server_for_ChatApp.Messages.ClientToServer;
+﻿using Server_for_ChatApp.Messages.ServerInternals;
 using ServerForChatApp;
 using ServerForChatApp.Messages;
 using System;
@@ -14,15 +14,20 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 
         public MakeMessageToBeSentToClient(MessageDataGet messageData)
         {
+
             _messageData = messageData;
 
             using (MemoryStream ms = new MemoryStream())
+
             using (BinaryWriter writer = new BinaryWriter(ms))
             {
+
                 writer.Write(_messageData.GetSenderId());
+
                 writer.Write(_messageData.GetMessageBytes()); 
 
                 _finalPayload = ms.ToArray();
+
             }
         }
 

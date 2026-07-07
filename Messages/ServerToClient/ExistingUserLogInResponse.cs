@@ -1,41 +1,34 @@
-﻿using ServerForChatApp;
+﻿using Server_for_ChatApp.UserManagers;
+using ServerForChatApp;
 using ServerForChatApp.Messages;
 using System.IO;
-using System.Text;
 
 namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class ExistingUserLogInResponse : INetworkMessage
     {
-
         public int LoggedInUserId { get; private set; }
-
         public bool IsValid { get; private set; }
 
-
-
-        public ExistingUserLogInResponse(string username, Dictionary<int, string> userDictionary)
+        public ExistingUserLogInResponse(string username, UserManager usersManager, bool existInfo)
         {
+            UserInfo user = usersManager.GetUserByName(username);
 
-            IsValid = false;
-
-            foreach (var kvp in userDictionary)
+            if (existInfo)
             {
 
-                if (kvp.Value == username)
-                {
+                LoggedInUserId = user.ID; 
 
-                    LoggedInUserId = kvp.Key;
+                IsValid = true;
 
-                    IsValid = true;
+            }
+            else
+            {
 
-                    break;
+                IsValid = false;
 
-                }
             }
         }
-
-
 
         public byte GetId()
         {
@@ -43,8 +36,6 @@ namespace Server_for_ChatApp.Messages.ServerToClient
             return (byte)MessageId.LOG_IN;
 
         }
-
-
 
         public byte[] ToBytes()
         {

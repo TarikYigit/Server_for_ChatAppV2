@@ -1,4 +1,9 @@
-﻿using Server_for_ChatApp.Messages.ClientToServer;
+﻿using Server_for_ChatApp;
+using Server_for_ChatApp.ConnectionManagers;
+using Server_for_ChatApp.Messages.ClientToServer;
+using Server_for_ChatApp.Messages.ServerInternals;
+using Server_for_ChatApp.Messages.ServerToClient;
+using Server_for_ChatApp.UserManagers;
 using ServerForChatApp.Messages;
 using ServerForChatApp.Messages.ClientToServer;
 using System;
@@ -7,9 +12,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
-using ServerForChatApp;
-using Server_for_ChatApp.Messages.ServerToClient;
 
 namespace ServerForChatApp
 {
@@ -21,8 +25,6 @@ namespace ServerForChatApp
         GET_USERS = 2,
 
         SEND_MESSAGE = 3,
-
-        LOG_OUT = 4,
 
         EXISTING_USER_LOG_IN = 5,
 
@@ -37,20 +39,22 @@ namespace ServerForChatApp
 
         private bool isRunning;
 
-        public UserManagerClass UserIdManager;
+        public UserManager Users;
 
-        UserDictionary UserLogs = new UserDictionary();
+        public ConnectionManager Connections;
 
         public Dictionary<string, NetworkStream> ActiveConnections = new Dictionary<string, NetworkStream>();
 
         public IOfflineMessageStorage OfflineStorage = new PermanentOfflineMessageStorage();
 
-        public TCPServer(int port, UserManagerClass idManager)
+        public TCPServer(int port, UserManager userManager)
         {
 
             listener = new TcpListener(IPAddress.Loopback, port);
 
-            this.UserIdManager = idManager;
+            this.Users = userManager;
+
+            this.Connections = new ConnectionManager();
 
         }
 
@@ -75,92 +79,38 @@ namespace ServerForChatApp
             }
         }
 
-
-
         public void BroadcastUserList()
         {
-            GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
+            List<UserInfo> allUsers = Users.GetAllUsers();
 
-            var connectionsSnapshot = ActiveConnections.ToList();
-
-            foreach (var connection in connectionsSnapshot)
+            foreach (UserInfo targetUser in allUsers)
             {
-                string targetUsername = connection.Key;
-                NetworkStream targetStream = connection.Value;
-
-                byte targetUserId = 0;
-
-                lock (UserIdManager.UserIDDictionary)
+                if (Connections.IsUserOnline(targetUser.ID))
                 {
-                    foreach (var kvp in UserIdManager.UserIDDictionary)
+                    NetworkStream targetStream = Connections.GetStream(targetUser.ID);
+
+                    List<UserInfo> otherUsers = Users.GetAllUsersExcept(targetUser.ID);
+
+                    GetUserListResponse listResponse = new GetUserListResponse(otherUsers);
+
+                    try
                     {
-                        if (kvp.Value == targetUsername)
-                        {
-                            targetUserId = (byte)kvp.Key;
-                            break;
-                        }
+                        SendPacketClass.Send(targetStream, listResponse);
+                    }
+                    catch (Exception)
+                    {
+
                     }
                 }
-
-                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, targetUserId);
-
-                GetUserListResponse listResponse = new GetUserListResponse(filteredUsers);
-
-                try
-                {
-                    INetworkMessage message = listResponse;
-                    SendPacket(targetStream, message.GetId(), message.ToBytes());
-                }
-                catch (Exception)
-                {
-                }
             }
         }
-
-        public void SendPacket(NetworkStream stream, INetworkMessage message)
-        {
-            SendPacket(stream, message.GetId(), message.ToBytes());
-        }
-
-
-
-        public void SendPacket(NetworkStream stream, byte messageId, byte[] payload)
-        {
-
-            int payloadLength = payload?.Length ?? 0;
-
-            using (MemoryStream ms = new MemoryStream())
-
-            using (BinaryWriter writer = new BinaryWriter(ms))
-            {
-
-                writer.Write(messageId);
-
-                writer.Write(payloadLength); 
-
-                if (payloadLength > 0)
-                {
-
-                    writer.Write(payload);
-
-                }
-                byte[] finalPacket = ms.ToArray();
-
-                stream.Write(finalPacket, 0, finalPacket.Length);
-
-                stream.Flush();
-
-            }
-        }
-
-
 
         public void HandleClient(TcpClient client)
         {
 
             NetworkStream stream = client.GetStream();
 
-            string currentUsername = "";
+            int currentUserId = 0;
 
             byte[] headerBuffer = new byte[5];
 
@@ -208,24 +158,35 @@ namespace ServerForChatApp
                         case MessageId.LOG_IN:
                             {
 
-                                GetCopyOfUserDictionaryOnlyNames dictionaryCopier = new GetCopyOfUserDictionaryOnlyNames();
+                                LoginRequest loginRequest = new LoginRequest(payload);
 
-                                List<string> usernameList = dictionaryCopier.GetUsernames(UserLogs.UserLogData);
+                                UserInfo existingUser = Users.GetUserByName(loginRequest.Username);
 
-                                LoginRequest loginRequest = new LoginRequest(payload, usernameList);
-
-                                LoginForClient loginResponse = new LoginForClient(payload, UserIdManager, UserLogs, loginRequest.GetAccepted());
-
-                                INetworkMessage message = loginResponse;
-
-                                SendPacket(stream, message.GetId(), message.ToBytes());
-
-                                //Internal Server Logic, not sent to client
-                                bool flowControl = ServerDictionariesHoldingClientActivity(client, stream, ref currentUsername, loginResponse);
-
-                                if (!flowControl)
+                                if (existingUser == null)
                                 {
-                                        
+
+                                    UserInfo newUser = Users.CreateAndAddUser(loginRequest.Username);
+
+                                    currentUserId = newUser.ID;
+
+                                    Connections.AddConnection(newUser.ID, stream);
+
+                                    LoginResponse loginResponse = new LoginResponse(newUser.ID, true);
+
+                                    SendPacketClass.Send(newUser.ID, loginResponse.GetId(), loginResponse.ToBytes(), Connections);
+
+                                    BroadcastUserList();
+
+                                }
+                                else
+                                {
+
+                                    LoginResponse loginResponse = new LoginResponse(0, false);
+
+                                    SendPacketClass.Send(stream, loginResponse.GetId(), loginResponse.ToBytes());
+
+                                    client.Close();
+
                                     return;
 
                                 }
@@ -237,83 +198,67 @@ namespace ServerForChatApp
 
                                 GetUserListRequest request = new GetUserListRequest(payload);
 
-                                GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
+                                List<UserInfo> UserList = Users.GetAllUsersExcept(request.RequesterId);
 
-                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, request.RequesterId);
+                                GetUserListResponse response = new GetUserListResponse(UserList);
 
-                                GetUserListResponse response = new GetUserListResponse(filteredUsers);
+                                int myRequest = request.RequesterId;
 
-                                SendPacket(stream, response);
+                                SendPacketClass.Send( myRequest , response.GetId() , response.ToBytes() , Connections );
 
                             }
                             break;
 
                         case MessageId.SEND_MESSAGE:
                             {
-                                // UserManger --> UserListesi var. User ekleyebiliyoruz, silebiliyoruz, userlistesi öğrenebiliyoruz, user filtreleyebiliyoruz, user sorgulayabiliyoruz.
-                                // ConnectionManager --> Connection Listesi, connecion sorgulayabiliyoruz.
-                                // Oflinestorage
 
                                 MessageDataGet messageData = new MessageDataGet(payload);
 
-                                GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
-
-                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, messageData.GetSenderId());
-    
-                                MessageValid doesRecieverExist = new MessageValid(messageData.GetReceiverId(), filteredUsers);
-
-                                MessageSendNowRequest routingRequest = new MessageSendNowRequest(doesRecieverExist.GetIsReceiverValid(), ActiveConnections, doesRecieverExist.GetReceiverUsername());
-
-                                MakeMessageToBeSentToClient formattedMessage = new MakeMessageToBeSentToClient(messageData);
-
-                                if (routingRequest.SendNow)
+                                if (!(Users.GetUserById(messageData.GetReceiverId()) == null))
                                 {
 
-                                    INetworkMessage message = formattedMessage;
+                                    MessageSendNowRequest routingRequest = new MessageSendNowRequest(messageData.GetReceiverId(), Connections);
 
-                                    SendPacket(routingRequest.ReceiverStream, message.GetId(), message.ToBytes());
-
-                                }
-                                else
-                                {
-
-                                    if (doesRecieverExist.GetIsReceiverValid())
+                                    if (routingRequest.SendNow)
                                     {
 
-                                        OfflineStorage.AddNewMessageForUser(messageData.GetSenderId(), messageData.GetReceiverId(), messageData.GetMessageBytes());
+                                        MakeMessageToBeSentToClient formattedMessage = new MakeMessageToBeSentToClient(messageData);
+
+                                        INetworkMessage message = formattedMessage;
+
+                                        SendPacketClass.Send(messageData.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), Connections);
 
                                     }
+                                    else
+                                    {
+
+                                        MakeMessageToBeSentToClient formattedMessage = new MakeMessageToBeSentToClient(messageData);
+
+                                        OfflineStorage.AddNewMessageForUser((byte)messageData.GetSenderId(), (byte)messageData.GetReceiverId(), formattedMessage.ToBytes());
+                                    }
+
                                 }
+                                
                             }
                             break;
 
-                        case MessageId.LOG_OUT:
-                            {
-
-                                ClientLoggedOutByPressingActualLogOut(client, currentUsername);
-                                return;
-
-                            }
 
                         case MessageId.EXISTING_USER_LOG_IN:
-                            {   
+                            {
 
                                 ExistingUserLogInRequest existingUserLoginRequest = new ExistingUserLogInRequest(payload);
 
-                                GetCopyOfUserDictionaryAll filterService = new GetCopyOfUserDictionaryAll();
+                                UserInfo existingUser = Users.GetUserByName(existingUserLoginRequest.GetUsername());
 
-                                Dictionary<int, string> filteredUsers = filterService.GetSafeFilteredUsers(UserIdManager.UserIDDictionary, 00);
-
-                                ExistingUserLogInResponse existingRequest = new ExistingUserLogInResponse(existingUserLoginRequest.GetUsername(), filteredUsers);
-
-                                INetworkMessage message = existingRequest;
-
-                                if (existingRequest.IsValid)
+                                if (existingUser != null)
                                 {
+                                    currentUserId = existingUser.ID;
 
-                                    currentUsername = ActiveUserDataForServerUse(stream, existingUserLoginRequest.GetUsername());
+                                    ExistingUserLogInResponse existing = new ExistingUserLogInResponse(existingUser.username, Users, true);
 
-                                    SendPacket(stream, message.GetId(), message.ToBytes());
+                                    Connections.AddConnection(existingUser.ID, stream);
+
+                                    SendPacketClass.Send(existingUser.ID, existing.GetId(), existing.ToBytes(), Connections);
 
                                     BroadcastUserList();
 
@@ -321,7 +266,9 @@ namespace ServerForChatApp
                                 else
                                 {
 
-                                    SendPacket(stream, message.GetId(), message.ToBytes());
+                                    ExistingUserLogInResponse notExisting = new ExistingUserLogInResponse(existingUser.username, Users, false);
+
+                                    SendPacketClass.Send(stream, notExisting.GetId(), notExisting.ToBytes());
 
                                     client.Close();
 
@@ -332,19 +279,19 @@ namespace ServerForChatApp
 
                         case MessageId.FETCH_OFFLINE_MESSAGES:
                             {
-                                FetchOfflineMessageRequest fetch = new FetchOfflineMessageRequest(payload);
-                                byte userId = fetch.RequesterId;
 
-                                List<byte[]> offlineMessages = OfflineStorage.GetOfflineMessagesForUser(userId);
+                                FetchOfflineMessageRequest fetch = new FetchOfflineMessageRequest(payload);
+
+                                List<byte[]> offlineMessages = OfflineStorage.GetOfflineMessagesForUser(fetch.RequesterId);
 
                                 foreach (byte[] msgPayload in offlineMessages)
                                 {
 
-                                    SendPacket(stream, (byte)MessageId.SEND_MESSAGE, msgPayload);
+                                    SendPacketClass.Send(stream, (byte)MessageId.SEND_MESSAGE, msgPayload);
 
                                 }
 
-                                OfflineStorage.ClearOfflineMessagesForUser(userId);
+                                OfflineStorage.ClearOfflineMessagesForUser(fetch.RequesterId);
                             }
                             break;
 
@@ -354,12 +301,15 @@ namespace ServerForChatApp
             catch (Exception)
             {
 
-                ActiveConnections.Remove(currentUsername);
+                if (currentUserId != 0)
+                {
+                    Connections.RemoveConnection(currentUserId);
+
+                    BroadcastUserList();
+                }
 
             }
         }
-
-
 
         private string ActiveUserDataForServerUse(NetworkStream stream, string username)
         {
@@ -370,60 +320,14 @@ namespace ServerForChatApp
 
         }
 
-
-
-        private void ClientLoggedOutByPressingActualLogOut(TcpClient client, string currentUsername)
-        {
-
-            UserLogs.SetItem(currentUsername, DateTime.Now.ToString("yyyy-MM-dd-HH:mm:ss"));
-
-            ActiveConnections.Remove(currentUsername);
-
-            client.Close();
-
-            return;
-
-        }
-
-
-
-        private bool ServerDictionariesHoldingClientActivity(TcpClient client, NetworkStream stream, ref string currentUsername, LoginForClient loginRequest)
-        {
-
-            if (loginRequest.IsAccepted)
-            {
-
-                currentUsername = loginRequest.Username;
-
-                ActiveConnections[currentUsername] = stream;
-
-                BroadcastUserList();
-
-            }
-
-            else
-
-            {
-
-                client.Close();
-
-                return false;
-
-            }
-
-            return true;
-        }
-
-
-
         public static void Main()
         {
 
             int port = 5000;
 
-            UserManagerClass masterIdManager = new UserManagerClass();
+            UserManager masterUserManager = new UserManager();
 
-            TCPServer server = new TCPServer(port, masterIdManager);
+            TCPServer server = new TCPServer(port, masterUserManager);
 
             server.Start();
 

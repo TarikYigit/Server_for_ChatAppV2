@@ -1,43 +1,38 @@
-﻿using System;
+﻿using Server_for_ChatApp.UserManagers;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace ServerForChatApp
 {
-
     internal static class SendUserListForClient
     {
-
-        public static byte[] GenerateUserListPacket(UserManagerClass idManager)
+        // THE FIX: Accept the correct UserManagerClass
+        public static byte[] GenerateUserListPacket(UserManager idManager)
         {
+            List<byte> packet = new List<byte> { (byte)MessageId.GET_USERS };
 
-            List<byte> packet = new List<byte> { (byte)MessageId.GET_USERS };            // user list message type
+            // 1. Get the list of users using your new Manager method!
+            List<UserInfo> allUsers = idManager.GetAllUsers();
 
-            packet.Add((byte)idManager.UserIDDictionary.Count);   //amount of usernames in the dictionary
+            packet.Add((byte)allUsers.Count);
 
-            foreach (var user in idManager.UserIDDictionary)
+            // 2. Loop through the UserInfo objects instead of a Dictionary
+            foreach (UserInfo user in allUsers)
             {
+                byte userId = (byte)user.ID; // Change to user.ID if your property is capitalized
 
-                byte userId = (byte)user.Key;
-
-                byte[] usernameBytes = Encoding.UTF8.GetBytes(user.Value);
+                byte[] usernameBytes = Encoding.UTF8.GetBytes(user.username);
 
                 int length = usernameBytes.Length;
-
                 if (length > 255) length = 255;
 
                 packet.Add(userId);
-
                 packet.Add((byte)length);
-
                 packet.AddRange(usernameBytes);
-
             }
 
             return packet.ToArray();
-
         }
     }
 }
