@@ -1,8 +1,9 @@
-﻿using System.IO;
+﻿using Server_for_ChatApp.Interfaces.RequestInterfaces;
+using System.IO;
 
 namespace ServerForChatApp.Messages.ClientToServer
 {
-    internal class FetchOfflineMessageRequest
+    internal class FetchOfflineMessageRequest : IRequest
     {
         public byte RequesterId { get; private set; }
 
@@ -21,6 +22,12 @@ namespace ServerForChatApp.Messages.ClientToServer
             }
         }
 
+        byte GetUserID()
+        {
+
+            return RequesterId;
+
+        }
     
     }
 }

@@ -33,7 +33,6 @@ namespace Server_for_ChatApp
 
         public static void Send(NetworkStream stream, INetworkMessage message)
         {
-
             Send(stream, message.GetId(), message.ToBytes());
 
         }

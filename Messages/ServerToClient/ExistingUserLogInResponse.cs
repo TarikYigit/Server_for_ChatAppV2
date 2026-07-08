@@ -13,7 +13,7 @@ namespace Server_for_ChatApp.Messages.ServerToClient
         public ExistingUserLogInResponse(string username, UserManager usersManager, bool existInfo)
         {
             UserInfo user = usersManager.GetUserByName(username);
-
+            
             if (existInfo)
             {
 

@@ -1,10 +1,11 @@
 ﻿using Server_for_ChatApp;
-using Server_for_ChatApp.Vault;
 using Server_for_ChatApp.ConnectionManagers;
+using Server_for_ChatApp.Interfaces;
 using Server_for_ChatApp.Messages.ClientToServer;
 using Server_for_ChatApp.Messages.ServerInternals;
 using Server_for_ChatApp.Messages.ServerToClient;
 using Server_for_ChatApp.UserManagers;
+using Server_for_ChatApp.Vault;
 using ServerForChatApp.Messages.ClientToServer;
 using System;
 using System.Collections.Generic;
@@ -13,8 +14,11 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using Server_for_ChatApp.Interfaces;
+using System.Text.RegularExpressions;
+using static Server_for_ChatApp.StateMachines.ClientSessionStateMachine;
+using static System.Collections.Specialized.BitVector32;
 
 namespace ServerForChatApp
 {
@@ -32,6 +36,17 @@ namespace ServerForChatApp
         FETCH_OFFLINE_MESSAGES = 6,
 
     }
+
+    enum LogState : int
+    {
+
+        LoggedIn = 1,
+
+        NotLoggedIn = 0,
+
+    }
+
+
 
     class TCPServer
     {
@@ -88,6 +103,7 @@ namespace ServerForChatApp
             {
                 if (Connections.IsUserOnline(targetUser.ID))
                 {
+
                     NetworkStream targetStream = Connections.GetStream(targetUser.ID);
 
                     List<UserInfo> otherUsers = Users.GetAllUsersExcept(targetUser.ID);
@@ -96,7 +112,9 @@ namespace ServerForChatApp
 
                     try
                     {
+
                         SendPacketClass.Send(targetStream, listResponse);
+
                     }
                     catch (Exception)
                     {
@@ -107,13 +125,14 @@ namespace ServerForChatApp
         }
 
         public void HandleClient(TcpClient client)
-        {   //state machine here
+        {
+            LogState currentState = LogState.NotLoggedIn;
 
             NetworkStream stream = client.GetStream();
 
-            int currentUserId = 0;
-
             byte[] headerBuffer = new byte[5];
+
+            ClientSession session = new ClientSession(this, stream);
 
             try
             {
@@ -159,39 +178,34 @@ namespace ServerForChatApp
                         case MessageId.LOG_IN:
                             {
 
-                                LoginRequest loginRequest = new LoginRequest(payload);
+                                LoginRequest request = new LoginRequest(payload);
 
-                                // State makinesine ExecuteMessage(request);
+                                LoginResponse response = (LoginResponse)session.UpdateState(messageId, request);
 
-                                UserInfo existingUser = Users.GetUserByName(loginRequest.Username);
-
-
-                                if (existingUser == null)
+                                if (response != null)
                                 {
 
-                                    UserInfo newUser = Users.CreateAndAddUser(loginRequest.Username);
-
-                                    currentUserId = newUser.ID;
-
-                                    Connections.AddConnection(newUser.ID, stream);
-
-                                    LoginResponse loginResponse = new LoginResponse(newUser.ID, true);
-
-                                    SendPacketClass.Send(newUser.ID, loginResponse.GetId(), loginResponse.ToBytes(), Connections);
+                                    SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
 
                                     BroadcastUserList();
 
                                 }
-                                else
+                            }
+                            break;
+
+                        case MessageId.EXISTING_USER_LOG_IN:
+                            {
+
+                                ExistingUserLogInRequest request = new ExistingUserLogInRequest(payload);
+
+                                ExistingUserLogInResponse response = (ExistingUserLogInResponse)session.UpdateState(messageId, request);
+
+                                if (response != null)
                                 {
 
-                                    LoginResponse loginResponse = new LoginResponse(0, false);
+                                    SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
 
-                                    SendPacketClass.Send(stream, loginResponse.GetId(), loginResponse.ToBytes());
-
-                                    client.Close();
-
-                                    return;
+                                    BroadcastUserList();
 
                                 }
                             }
@@ -202,116 +216,64 @@ namespace ServerForChatApp
 
                                 GetUserListRequest request = new GetUserListRequest(payload);
 
-                                List<UserInfo> UserList = Users.GetAllUsersExcept(request.RequesterId);
+                                INetworkMessage response = session.UpdateState(messageId, request);
 
-                                GetUserListResponse response = new GetUserListResponse(UserList);
+                                if (response != null)
+                                {
 
-                                int myRequest = request.RequesterId;
+                                    SendPacketClass.Send(request.RequesterId, response.GetId(), response.ToBytes(), Connections);
 
-                                SendPacketClass.Send( myRequest , response.GetId() , response.ToBytes() , Connections );
-
+                                }
                             }
                             break;
 
                         case MessageId.SEND_MESSAGE:
                             {
 
-                                MessageDataGet messageData = new MessageDataGet(payload);
-
-                                if (!(Users.GetUserById(messageData.GetReceiverId()) == null))
-                                {
-
-                                    MessageSendNowRequest routingRequest = new MessageSendNowRequest(messageData.GetReceiverId(), Connections);
-
-                                    if (routingRequest.SendNow)
-                                    {
-
-                                        MessageResponse formattedMessage = new MessageResponse(messageData);
-
-                                        INetworkMessage message = formattedMessage;
-
-                                        SendPacketClass.Send(messageData.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), Connections);
-
-                                    }
-                                    else
-                                    {
-
-                                        MessageResponse formattedMessage = new MessageResponse(messageData);
-
-                                        OfflineStorage.AddNewMessageForUser((byte)messageData.GetSenderId(), (byte)messageData.GetReceiverId(), formattedMessage.ToBytes());
-                                    }
-
-                                }
+                                MessageDataGet request = new MessageDataGet(payload);
                                 
-                            }
-                            break;
+                                session.UpdateState(messageId, request);
 
-
-                        case MessageId.EXISTING_USER_LOG_IN:
-                            {
-
-                                ExistingUserLogInRequest existingUserLoginRequest = new ExistingUserLogInRequest(payload);
-
-                                UserInfo existingUser = Users.GetUserByName(existingUserLoginRequest.GetUsername());
-
-                                if (existingUser != null)
-                                {
-                                    currentUserId = existingUser.ID;
-
-                                    ExistingUserLogInResponse existing = new ExistingUserLogInResponse(existingUser.username, Users, true);
-
-                                    Connections.AddConnection(existingUser.ID, stream);
-
-                                    SendPacketClass.Send(existingUser.ID, existing.GetId(), existing.ToBytes(), Connections);
-
-                                    BroadcastUserList();
-
-                                }
-                                else
-                                {
-
-                                    ExistingUserLogInResponse notExisting = new ExistingUserLogInResponse(existingUser.username, Users, false);
-
-                                    SendPacketClass.Send(stream, notExisting.GetId(), notExisting.ToBytes());
-
-                                    client.Close();
-
-                                    return;
-                                }
                             }
                             break;
 
                         case MessageId.FETCH_OFFLINE_MESSAGES:
                             {
 
-                                FetchOfflineMessageRequest fetch = new FetchOfflineMessageRequest(payload);
+                                FetchOfflineMessageRequest request = new FetchOfflineMessageRequest(payload);
 
-                                List<byte[]> offlineMessages = OfflineStorage.GetOfflineMessagesForUser(fetch.RequesterId);
+                                List<byte[]> offlineMessages = (List<byte[]>)session.UpdateState(messageId, request);
 
-                                foreach (byte[] msgPayload in offlineMessages)
+                                if (offlineMessages != null)
                                 {
 
-                                    SendPacketClass.Send(stream, (byte)MessageId.SEND_MESSAGE, msgPayload);
+                                    foreach (byte[] messagePayload in offlineMessages)
+                                    {
+
+                                        SendPacketClass.Send(stream, (byte)MessageId.SEND_MESSAGE, messagePayload);
+
+                                    }
+
+                                    OfflineStorage.ClearOfflineMessagesForUser(request.RequesterId);
+
 
                                 }
-
-                                OfflineStorage.ClearOfflineMessagesForUser(fetch.RequesterId);
                             }
                             break;
-
                     }
                 }
             }
             catch (Exception)
             {
 
-                if (currentUserId != 0)
+                if (session.CurrentUserId != 0)
                 {
-                    Connections.RemoveConnection(currentUserId);
+
+                    Connections.RemoveConnection(session.CurrentUserId);
 
                     BroadcastUserList();
-                }
 
+                }
             }
         }
 

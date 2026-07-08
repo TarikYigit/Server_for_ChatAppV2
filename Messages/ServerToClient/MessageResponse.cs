@@ -9,8 +9,6 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class MessageResponse : INetworkMessage
     {
-        private byte[] _finalPayload;
-
         private MessageDataGet _messageData;
 
         public MessageResponse(MessageDataGet messageData)
@@ -18,18 +16,6 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 
             _messageData = messageData;
 
-            using (MemoryStream ms = new MemoryStream())
-
-            using (BinaryWriter writer = new BinaryWriter(ms))
-            {
-
-                writer.Write(_messageData.GetSenderId());
-
-                writer.Write(_messageData.GetMessageBytes()); 
-
-                _finalPayload = ms.ToArray();
-
-            }
         }
 
         public byte GetId()
@@ -42,8 +28,18 @@ namespace Server_for_ChatApp.Messages.ServerToClient
         public byte[] ToBytes()
         {
 
-            return _finalPayload;
+            using (MemoryStream ms = new MemoryStream())
 
+            using (BinaryWriter writer = new BinaryWriter(ms))
+            {
+
+                writer.Write(_messageData.GetSenderId());
+
+                writer.Write(_messageData.GetMessageBytes());
+
+                return ms.ToArray();
+
+            }
         }
     }
 }
