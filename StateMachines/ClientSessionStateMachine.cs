@@ -44,11 +44,69 @@ namespace Server_for_ChatApp.StateMachines
                 {
 
                     case LogState.NotLoggedIn:
-                        switch (IRequest)
+                        switch (action)
                         {
+                            case MessageId.LOG_IN:
+                                {
 
+                                }
+                                break;
+                            case MessageId.EXISTING_USER_LOG_IN:
+                                {   
+
+
+                                }
+                                break;
+                            case MessageId.GET_USERS:
+                                {
+
+                                }
+                                break;
+                            case MessageId.SEND_MESSAGE:
+                                {
+
+                                }
+                                break;
+                            case MessageId.FETCH_OFFLINE_MESSAGES:
+                                {
+                                    return 
+                                }
+                                break;
                         }
                         break;
+
+                    case LogState.LoggedIn:
+                        switch (action)
+                        {
+                            case MessageId.LOG_IN:
+                                {
+
+                                }
+                                break;
+                            case MessageId.EXISTING_USER_LOG_IN:
+                                {
+
+
+                                }
+                                break;
+                            case MessageId.GET_USERS:
+                                {
+
+                                }
+                                break;
+                            case MessageId.SEND_MESSAGE:
+                                {
+
+                                }
+                                break;
+                            case MessageId.FETCH_OFFLINE_MESSAGES:
+                                {
+                                    return
+                                }
+                                break;
+                        }
+                        break;
+
                         if (action == MessageId.LOG_IN)
                         {
 
