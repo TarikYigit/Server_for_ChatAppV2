@@ -3,7 +3,7 @@ using System.IO;
 
 namespace ServerForChatApp.Messages.ClientToServer
 {
-    internal class GetUserListRequest : IRequest
+    public class GetUserListRequest : IRequest
     {
         private byte RequesterId { get; set; }
 
@@ -24,10 +24,14 @@ namespace ServerForChatApp.Messages.ClientToServer
             }
         }
 
-        byte GetUserID()
+        public byte GetUserID()
         {
             return RequesterId;
         }
-
+        
+        public byte GetId()
+        {
+            return (byte)MessageId.GET_USERS;
+        }
     }
 }

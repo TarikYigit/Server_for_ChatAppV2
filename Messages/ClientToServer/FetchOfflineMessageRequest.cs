@@ -3,7 +3,7 @@ using System.IO;
 
 namespace ServerForChatApp.Messages.ClientToServer
 {
-    internal class FetchOfflineMessageRequest : IRequest
+    public class FetchOfflineMessageRequest : IRequest
     {
         public byte RequesterId { get; private set; }
 
@@ -22,12 +22,17 @@ namespace ServerForChatApp.Messages.ClientToServer
             }
         }
 
-        byte GetUserID()
+        public byte GetUserID()
         {
 
             return RequesterId;
 
         }
-    
+
+        public byte GetId()
+        {
+            return (byte)MessageId.FETCH_OFFLINE_MESSAGES;
+        }
+
     }
 }

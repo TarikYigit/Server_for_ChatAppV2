@@ -24,5 +24,12 @@ namespace Server_for_ChatApp.Messages.ClientToServer
             return Username;
 
         }
+
+        public byte GetId()
+        {
+
+            return (byte)MessageId.LOG_IN;
+
+        }
     }
 }

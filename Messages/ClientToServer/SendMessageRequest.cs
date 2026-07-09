@@ -1,16 +1,17 @@
-﻿using ServerForChatApp;
+﻿using Server_for_ChatApp.Interfaces.RequestInterfaces;
+using ServerForChatApp;
 using System.IO;
 
-namespace Server_for_ChatApp.Messages.ServerInternals
+namespace Server_for_ChatApp.Messages.ClientToServer
 {
-    internal class MessageDataGet
+    internal class SendMessageRequest : IRequest
     {
         private byte SenderId { get; set; }
         private byte ReceiverId { get; set; }
         private byte[] MessageBytes { get; set; }
 
 
-        public MessageDataGet(byte[] payload)
+        public SendMessageRequest(byte[] payload)
         {
             using (MemoryStream ms = new MemoryStream(payload))
 
@@ -47,6 +48,11 @@ namespace Server_for_ChatApp.Messages.ServerInternals
 
             return MessageBytes; 
 
+        }
+
+        public byte GetId()
+        {
+            return (byte)MessageId.SEND_MESSAGE;
         }
     }
 }

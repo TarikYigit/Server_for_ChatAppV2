@@ -1,5 +1,5 @@
 ﻿using Server_for_ChatApp.Interfaces;
-using Server_for_ChatApp.Messages.ServerInternals;
+using Server_for_ChatApp.Messages.ClientToServer;
 using ServerForChatApp;
 using System;
 using System.IO;
@@ -9,9 +9,9 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class MessageResponse : INetworkMessage
     {
-        private MessageDataGet _messageData;
+        private SendMessageRequest _messageData;
 
-        public MessageResponse(MessageDataGet messageData)
+        public MessageResponse(SendMessageRequest messageData)
         {
 
             _messageData = messageData;

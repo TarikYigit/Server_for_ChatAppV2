@@ -1,4 +1,5 @@
 ﻿using Server_for_ChatApp.Interfaces.RequestInterfaces;
+using ServerForChatApp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Server_for_ChatApp.Messages.ClientToServer
 {
-    internal class ExistingUserLogInRequest : IRequest
+    public class ExistingUserLogInRequest : IRequest
     {
         private  string Username {  get; set; }
 
@@ -24,5 +25,11 @@ namespace Server_for_ChatApp.Messages.ClientToServer
             return Username;
 
         }
+
+        public byte GetId()
+        {
+            return (byte)MessageId.EXISTING_USER_LOG_IN;
+        }
+
     }
 }

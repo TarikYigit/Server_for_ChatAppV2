@@ -1,8 +1,8 @@
 ﻿using Server_for_ChatApp;
 using Server_for_ChatApp.ConnectionManagers;
 using Server_for_ChatApp.Interfaces;
+using Server_for_ChatApp.Interfaces.RequestInterfaces;
 using Server_for_ChatApp.Messages.ClientToServer;
-using Server_for_ChatApp.Messages.ServerInternals;
 using Server_for_ChatApp.Messages.ServerToClient;
 using Server_for_ChatApp.UserManagers;
 using Server_for_ChatApp.Vault;
@@ -30,6 +30,8 @@ namespace ServerForChatApp
         GET_USERS = 2,
 
         SEND_MESSAGE = 3,
+
+        LOG_OUT = 4,
 
         EXISTING_USER_LOG_IN = 5,
 
@@ -180,16 +182,12 @@ namespace ServerForChatApp
 
                                 LoginRequest request = new LoginRequest(payload);
 
-                                LoginResponse response = (LoginResponse)session.UpdateState(messageId, request);
+                                LoginResponse response = (LoginResponse)session.UpdateState(request);
 
-                                if (response != null)
-                                {
+                                SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
 
-                                    SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
+                                BroadcastUserList();
 
-                                    BroadcastUserList();
-
-                                }
                             }
                             break;
 
@@ -198,16 +196,13 @@ namespace ServerForChatApp
 
                                 ExistingUserLogInRequest request = new ExistingUserLogInRequest(payload);
 
-                                ExistingUserLogInResponse response = (ExistingUserLogInResponse)session.UpdateState(messageId, request);
+                                ExistingUserLogInResponse response = (ExistingUserLogInResponse)session.UpdateState(request);
 
-                                if (response != null)
-                                {
+                                SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
 
-                                    SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
+                                BroadcastUserList();
 
-                                    BroadcastUserList();
-
-                                }
+                                
                             }
                             break;
 
@@ -216,23 +211,19 @@ namespace ServerForChatApp
 
                                 GetUserListRequest request = new GetUserListRequest(payload);
 
-                                INetworkMessage response = session.UpdateState(messageId, request);
+                                INetworkMessage response = session.UpdateState(request);
 
-                                if (response != null)
-                                {
+                                SendPacketClass.Send(request.GetUserID(), response.GetId(), response.ToBytes(), Connections);
 
-                                    SendPacketClass.Send(request.RequesterId, response.GetId(), response.ToBytes(), Connections);
-
-                                }
                             }
                             break;
 
                         case MessageId.SEND_MESSAGE:
                             {
 
-                                MessageDataGet request = new MessageDataGet(payload);
+                                SendMessageRequest request = new SendMessageRequest(payload);
                                 
-                                session.UpdateState(messageId, request);
+                                session.UpdateState(request);
 
                             }
                             break;
@@ -242,22 +233,8 @@ namespace ServerForChatApp
 
                                 FetchOfflineMessageRequest request = new FetchOfflineMessageRequest(payload);
 
-                                List<byte[]> offlineMessages = (List<byte[]>)session.UpdateState(messageId, request);
+                                session.UpdateState(request);
 
-                                if (offlineMessages != null)
-                                {
-
-                                    foreach (byte[] messagePayload in offlineMessages)
-                                    {
-
-                                        SendPacketClass.Send(stream, (byte)MessageId.SEND_MESSAGE, messagePayload);
-
-                                    }
-
-                                    OfflineStorage.ClearOfflineMessagesForUser(request.RequesterId);
-
-
-                                }
                             }
                             break;
                     }
@@ -265,6 +242,10 @@ namespace ServerForChatApp
             }
             catch (Exception)
             {
+
+                LogOutRequest request = new LogOutRequest((byte)session.CurrentUserId);
+
+                session.UpdateState(request);
 
                 if (session.CurrentUserId != 0)
                 {

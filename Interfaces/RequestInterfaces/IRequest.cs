@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 namespace Server_for_ChatApp.Interfaces.RequestInterfaces
 {
-    public interface IRequest //make 2 interfaces and then make IRequestLogin, IRequestOther
+    public interface IRequest 
     {
+
+        byte GetId();
 
     }
 }
