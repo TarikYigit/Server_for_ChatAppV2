@@ -1,36 +1,41 @@
 ﻿using Server_for_ChatApp.Interfaces;
-using Server_for_ChatApp.Messages.ClientToServer;
 using Server_for_ChatApp.UserManagers;
 using ServerForChatApp;
 using System.IO;
-using System.Text;
 
 namespace Server_for_ChatApp.Messages.ServerToClient
 {
     internal class LoginResponse : INetworkMessage
     {
+        public int LoggedInUserId { get; private set; }
+        public bool IsValid { get; private set; }
 
-        public bool IsAccepted { get; set; }
-
-        public int AssignedId { get; private set; }
-
-        public LoginResponse(int assignedID, bool isAccepted)
+        public LoginResponse(string username, UserManager usersManager, bool existInfo)
         {
+            UserInfo user = usersManager.GetUserByName(username);
+            
+            if (existInfo)
+            {
 
-            AssignedId = assignedID;
+                LoggedInUserId = user.ID; 
 
-            IsAccepted = isAccepted;
+                IsValid = true;
 
+            }
+            else
+            {
+
+                IsValid = false;
+
+            }
         }
-
 
         public byte GetId()
         {
 
-            return (byte)MessageId.LOG_IN;
+            return (byte)MessageId.LOGIN;
 
         }
-
 
         public byte[] ToBytes()
         {
@@ -40,12 +45,12 @@ namespace Server_for_ChatApp.Messages.ServerToClient
             using (BinaryWriter writer = new BinaryWriter(ms))
             {
 
-                if (IsAccepted)
+                if (IsValid)
                 {
 
                     writer.Write((byte)0x01); // 0x01 = Accepted
 
-                    writer.Write((byte)AssignedId);
+                    writer.Write((byte)LoggedInUserId);
 
                 }
                 else

@@ -8,18 +8,18 @@ using System.Threading.Tasks;
 
 namespace Server_for_ChatApp.Messages.ClientToServer
 {
-    public class LoginRequest : IRequest
-    {
-        private  string Username {  get; set; }
+    internal class RegisterRequest : IRequest
+    {   
+        private string Username { get;  set; }
 
-        private string Password { get; set; }
-        public LoginRequest(byte[] payload)
+        private string Password { get;  set; }
+
+        public RegisterRequest(byte[] payload)
         {
             using (MemoryStream ms = new MemoryStream(payload))
 
             using (BinaryReader reader = new BinaryReader(ms))
             {
-
                 int userLen = reader.ReadByte();
 
                 byte[] userBytes = reader.ReadBytes(userLen);
@@ -47,14 +47,13 @@ namespace Server_for_ChatApp.Messages.ClientToServer
 
             return Password; 
 
-        } 
+        }
 
         public byte GetId()
         {
 
-            return (byte)MessageId.LOGIN;
+            return (byte)MessageId.REGISTER;
 
         }
-
     }
 }

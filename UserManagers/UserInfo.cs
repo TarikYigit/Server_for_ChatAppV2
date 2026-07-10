@@ -10,6 +10,10 @@ namespace Server_for_ChatApp.UserManagers
     internal class UserInfo
     {
         public int ID { get; set; }
+
         public string username { get; set; }
+
+        public string password { get; set; }
+
     }
 }

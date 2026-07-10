@@ -1,4 +1,5 @@
-﻿using Server_for_ChatApp.Interfaces;
+﻿using Server_for_ChatApp.ConnectionManagers;
+using Server_for_ChatApp.Interfaces;
 using Server_for_ChatApp.Interfaces.RequestInterfaces;
 using Server_for_ChatApp.Messages.ClientToServer;
 using Server_for_ChatApp.Messages.ServerInternals;
@@ -39,7 +40,7 @@ namespace Server_for_ChatApp.StateMachines
             }
 
 
-            public INetworkMessage? UpdateState(IRequest request)
+            public INetworkMessage? ExecuteRequest(IRequest request)
             {
                 MessageId action = (MessageId)request.GetId();
 
@@ -49,41 +50,51 @@ namespace Server_for_ChatApp.StateMachines
                     case LogState.NotLoggedIn:
                         switch (action)
                         {
-                            case MessageId.LOG_IN:
+                            case MessageId.REGISTER:
+                                {
+
+                                    RegisterRequest myRequest = (RegisterRequest)request;
+
+                                    UserInfo existingUser = myServer.Users.GetUserByName(myRequest.GetUsername());
+
+                                    bool IsPasswordStrong = PasswordManager.IsPasswordStrong(myRequest.GetPassword());
+
+                                    if (existingUser != null)
+                                    {
+
+                                        return new RegisterResponse(0, false, true);
+
+                                    }
+                                    if (!IsPasswordStrong)
+                                    {
+
+                                        return new RegisterResponse(0, false, false);
+
+                                    }
+                                    UserInfo newUser = myServer.Users.CreateAndAddUser(myRequest.GetUsername(), myRequest.GetPassword());
+
+                                    CurrentUserId = newUser.ID;
+
+                                    myServer.Connections.AddConnection(newUser.ID, myStream);
+
+                                    currentState = LogState.LoggedIn; // state transition
+
+                                    return new RegisterResponse(newUser.ID, true, true);
+
+                                }
+
+                            case MessageId.LOGIN:
                                 {
 
                                     LoginRequest myRequest = (LoginRequest)request;
 
-                                    UserInfo existingUser = myServer.Users.GetUserByName(myRequest.Username);
-
-                                    if (existingUser == null)
-                                    {
-
-                                        UserInfo newUser = myServer.Users.CreateAndAddUser(myRequest.Username);
-
-                                        CurrentUserId = newUser.ID;
-
-                                        myServer.Connections.AddConnection(newUser.ID, myStream);
-
-                                        currentState = LogState.LoggedIn; // state transition
-
-                                        return new LoginResponse(newUser.ID, true);
-
-                                    }
-                                    return new LoginResponse(0, false);
-                                }
-                                break;
-
-                            case MessageId.EXISTING_USER_LOG_IN:
-                                {
-
-                                    ExistingUserLogInRequest myRequest = (ExistingUserLogInRequest)request;
-
                                     string requestedName = myRequest.GetUsername();
+
+                                    string providedPassword = myRequest.GetPassword();
 
                                     UserInfo existingUser = myServer.Users.GetUserByName(requestedName);
 
-                                    if (existingUser != null)
+                                    if (existingUser != null && myServer.Users.VerifyUserPassword(myRequest.GetUsername(), myRequest.GetPassword()))
                                     {
 
                                         CurrentUserId = existingUser.ID;
@@ -92,13 +103,12 @@ namespace Server_for_ChatApp.StateMachines
 
                                         currentState = LogState.LoggedIn; // state transition
 
-                                        return new ExistingUserLogInResponse(requestedName, myServer.Users, true);
+                                        return new LoginResponse(requestedName, myServer.Users, true);
 
                                     }
-                                    return new ExistingUserLogInResponse(requestedName, myServer.Users, false);
+                                    return new LoginResponse(requestedName, myServer.Users, false);
 
                                 }
-                                break;
 
                             case MessageId.LOG_OUT:
                                 {
@@ -106,7 +116,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return null;
 
                                 }
-                                break;
 
                             case MessageId.GET_USERS:
                                 {
@@ -118,7 +127,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return new GetUserListResponse(userList);
 
                                 }
-                                break;
 
                             case MessageId.SEND_MESSAGE:
                                 {
@@ -127,7 +135,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return null;
 
                                 }
-                                break;
 
                             case MessageId.FETCH_OFFLINE_MESSAGES:
                                 {
@@ -136,7 +143,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return null;
 
                                 }
-                                break;
 
                         }
                         break;
@@ -144,24 +150,23 @@ namespace Server_for_ChatApp.StateMachines
                     case LogState.LoggedIn:
                         switch (action)
                         {
-                            case MessageId.LOG_IN:
+                            case MessageId.REGISTER:
                                 {
 
-                                    return new LoginResponse(0, false);
+                                    return new RegisterResponse(0, false, false);
 
                                 }
 
-                            case MessageId.EXISTING_USER_LOG_IN:
+                            case MessageId.LOGIN:
                                 {
 
-                                    ExistingUserLogInRequest myRequest = (ExistingUserLogInRequest)request;
+                                    LoginRequest myRequest = (LoginRequest)request;
 
                                     string requestedName = myRequest.GetUsername();
 
-                                    return new ExistingUserLogInResponse(requestedName, myServer.Users, false);
+                                    return new LoginResponse(requestedName, myServer.Users, false);
 
                                 }
-                                break;
 
                             case MessageId.LOG_OUT:
                                 {
@@ -171,7 +176,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return null;
 
                                 }
-                                break;
 
                             case MessageId.GET_USERS:
                                 {
@@ -183,7 +187,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return new GetUserListResponse(userList);
 
                                 }
-                                break;
 
                             case MessageId.SEND_MESSAGE:
                                 {
@@ -200,7 +203,7 @@ namespace Server_for_ChatApp.StateMachines
                                         if (routingRequest.SendNow)
                                         {
 
-                                            SendPacketClass.Send(myRequest.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), myServer.Connections);
+                                            ConnectionManager.Send(myRequest.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), myServer.Connections);
 
                                         }
                                         else
@@ -213,8 +216,6 @@ namespace Server_for_ChatApp.StateMachines
 
                                     return null;
                                 }
-                                break;
-
                             case MessageId.FETCH_OFFLINE_MESSAGES:
                                 {
 
@@ -225,7 +226,7 @@ namespace Server_for_ChatApp.StateMachines
                                     foreach (byte[] messagePayload in messages)
                                     {
 
-                                        SendPacketClass.Send(myRequest.GetUserID(), (byte)MessageId.SEND_MESSAGE, messagePayload, myServer.Connections);
+                                        ConnectionManager.Send(myRequest.GetUserID(), (byte)MessageId.SEND_MESSAGE, messagePayload, myServer.Connections);
 
                                     }
 
@@ -234,7 +235,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return null;
 
                                 }
-                                break;
 
                         }
                         break;

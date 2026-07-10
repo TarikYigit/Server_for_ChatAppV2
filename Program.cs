@@ -25,7 +25,7 @@ namespace ServerForChatApp
     enum MessageId : byte
     {
 
-        LOG_IN = 1,
+        REGISTER = 1,
 
         GET_USERS = 2,
 
@@ -33,7 +33,7 @@ namespace ServerForChatApp
 
         LOG_OUT = 4,
 
-        EXISTING_USER_LOG_IN = 5,
+        LOGIN = 5,
 
         FETCH_OFFLINE_MESSAGES = 6,
 
@@ -115,7 +115,7 @@ namespace ServerForChatApp
                     try
                     {
 
-                        SendPacketClass.Send(targetStream, listResponse);
+                        ConnectionManager.Send(targetStream, listResponse);
 
                     }
                     catch (Exception)
@@ -177,28 +177,28 @@ namespace ServerForChatApp
 
                     switch (messageId)
                     {
-                        case MessageId.LOG_IN:
+                        case MessageId.REGISTER:
                             {
 
-                                LoginRequest request = new LoginRequest(payload);
+                                RegisterRequest request = new RegisterRequest(payload);
 
-                                LoginResponse response = (LoginResponse)session.UpdateState(request);
+                                RegisterResponse response = (RegisterResponse)session.ExecuteRequest(request);
 
-                                SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
+                                ConnectionManager.Send(stream, response.GetId(), response.ToBytes());
 
                                 BroadcastUserList();
 
                             }
                             break;
 
-                        case MessageId.EXISTING_USER_LOG_IN:
+                        case MessageId.LOGIN:
                             {
 
-                                ExistingUserLogInRequest request = new ExistingUserLogInRequest(payload);
+                                LoginRequest request = new LoginRequest(payload);
 
-                                ExistingUserLogInResponse response = (ExistingUserLogInResponse)session.UpdateState(request);
+                                LoginResponse response = (LoginResponse)session.ExecuteRequest(request);
 
-                                SendPacketClass.Send(stream, response.GetId(), response.ToBytes());
+                                ConnectionManager.Send(stream, response.GetId(), response.ToBytes());
 
                                 BroadcastUserList();
 
@@ -211,9 +211,9 @@ namespace ServerForChatApp
 
                                 GetUserListRequest request = new GetUserListRequest(payload);
 
-                                INetworkMessage response = session.UpdateState(request);
+                                INetworkMessage response = session.ExecuteRequest(request);
 
-                                SendPacketClass.Send(request.GetUserID(), response.GetId(), response.ToBytes(), Connections);
+                                ConnectionManager.Send(request.GetUserID(), response.GetId(), response.ToBytes(), Connections);
 
                             }
                             break;
@@ -223,7 +223,7 @@ namespace ServerForChatApp
 
                                 SendMessageRequest request = new SendMessageRequest(payload);
                                 
-                                session.UpdateState(request);
+                                session.ExecuteRequest(request);
 
                             }
                             break;
@@ -233,7 +233,7 @@ namespace ServerForChatApp
 
                                 FetchOfflineMessageRequest request = new FetchOfflineMessageRequest(payload);
 
-                                session.UpdateState(request);
+                                session.ExecuteRequest(request);
 
                             }
                             break;
@@ -245,7 +245,7 @@ namespace ServerForChatApp
 
                 LogOutRequest request = new LogOutRequest((byte)session.CurrentUserId);
 
-                session.UpdateState(request);
+                session.ExecuteRequest(request);
 
                 if (session.CurrentUserId != 0)
                 {
