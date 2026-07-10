@@ -8,6 +8,16 @@ namespace Server_for_ChatApp.Vault
     public class PermanentOfflineMessageStorage : IOfflineMessageStorage
     {
 
+        //Reg request  UserName Password
+        //Reg response (bool result, string message) ==> true, success,   (false, username exists)
+
+        // Login request username password
+        // Loginresponse aynı
+
+        // SendPacketClass taşı
+
+        // Request responselarına düz parametreler gelsin.
+
         private string myFile = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Playground\Message_Save.txt";
 
         public void AddNewMessageForUser(byte fromId, byte toId, byte[] data)

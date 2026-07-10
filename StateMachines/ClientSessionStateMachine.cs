@@ -150,7 +150,6 @@ namespace Server_for_ChatApp.StateMachines
                                     return new LoginResponse(0, false);
 
                                 }
-                                break;
 
                             case MessageId.EXISTING_USER_LOG_IN:
                                 {
