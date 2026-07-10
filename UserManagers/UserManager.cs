@@ -58,6 +58,14 @@ namespace Server_for_ChatApp.UserManagers
 
         private void SaveUserToFile(UserInfo user)
         {
+            string directoryPath = Path.GetDirectoryName(_databaseFilePath);
+
+            if (!Directory.Exists(directoryPath))
+            {
+
+                Directory.CreateDirectory(directoryPath);
+
+            }
 
             string line = $"{user.ID}|{user.username}|{user.password}\n";
 
@@ -105,18 +113,22 @@ namespace Server_for_ChatApp.UserManagers
 
             int newId = GenerateRandomUserID();
 
+            string hashedPassword = HashPassword(password);
+
             UserInfo newUser = new UserInfo
             {
 
                 ID = newId,
 
-                password = password,  
+                password = hashedPassword, 
 
                 username = username
 
             };
 
             UserManagerObject.Add(newId, newUser);
+
+            SaveUserToFile(newUser);
 
             return newUser;
 
