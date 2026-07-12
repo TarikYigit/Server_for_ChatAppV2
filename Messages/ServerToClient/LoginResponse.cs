@@ -8,26 +8,16 @@ namespace Server_for_ChatApp.Messages.ServerToClient
     internal class LoginResponse : INetworkMessage
     {
         public int LoggedInUserId { get; private set; }
+
         public bool IsValid { get; private set; }
 
-        public LoginResponse(string username, UserManager usersManager, bool existInfo)
+        public LoginResponse(string username, int UserID, bool existInfo)
         {
-            UserInfo user = usersManager.GetUserByName(username);
-            
-            if (existInfo)
-            {
 
-                LoggedInUserId = user.ID; 
+            LoggedInUserId = UserID;
 
-                IsValid = true;
+            IsValid = existInfo;
 
-            }
-            else
-            {
-
-                IsValid = false;
-
-            }
         }
 
         public byte GetId()

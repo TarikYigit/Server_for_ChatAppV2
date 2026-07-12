@@ -103,10 +103,10 @@ namespace Server_for_ChatApp.StateMachines
 
                                         currentState = LogState.LoggedIn; // state transition
 
-                                        return new LoginResponse(requestedName, myServer.Users, true);
+                                        return new LoginResponse(requestedName, existingUser.ID , true);
 
                                     }
-                                    return new LoginResponse(requestedName, myServer.Users, false);
+                                    return new LoginResponse(requestedName, 0, false);
 
                                 }
 
@@ -164,7 +164,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                     string requestedName = myRequest.GetUsername();
 
-                                    return new LoginResponse(requestedName, myServer.Users, false);
+                                    return new LoginResponse(requestedName, 0, false);
 
                                 }
 
@@ -202,6 +202,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                         if (routingRequest.SendNow)
                                         {
+
 
                                             ConnectionManager.Send(myRequest.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), myServer.Connections);
 

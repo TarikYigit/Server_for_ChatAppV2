@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Microsoft.Data.Sqlite;
+using Server_for_ChatApp.Database;
+using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -9,67 +9,208 @@ namespace Server_for_ChatApp.UserManagers
 {
     internal class UserManager
     {
-        public Dictionary<int, UserInfo> UserManagerObject;
+
+        private readonly string _connectionString;
 
         private Random _random;
 
-        private readonly string _databaseFilePath = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Playground\Database.txt";
-
-        public UserManager()
+        public UserManager(DatabaseManager dbManager)
         {
 
-            UserManagerObject = new Dictionary<int, UserInfo>();
+            _connectionString = dbManager.GetConnectionString();
 
             _random = new Random();
 
-            LoadUsersFromFile();
+        }
+
+        public UserInfo CreateAndAddUser(string username, string password)
+        {
+
+            int newId = GenerateRandomUserID();
+
+            string hashedPassword = HashPassword(password);
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+
+                connection.Open();
+
+                var command = connection.CreateCommand();
+
+                command.CommandText = @"INSERT INTO Users (ID, Username, PasswordHash) VALUES ($id, $user, $pass);";
+
+                command.Parameters.AddWithValue("$id", newId);
+
+                command.Parameters.AddWithValue("$user", username);
+
+                command.Parameters.AddWithValue("$pass", hashedPassword);
+
+                command.ExecuteNonQuery();
+
+            }
+
+            return new UserInfo { ID = newId, username = username, password = hashedPassword };
 
         }
 
-        private void LoadUsersFromFile()
+        public List<UserInfo> GetAllUsers()
         {
-            if (!File.Exists(_databaseFilePath)) return;
+            List<UserInfo> userList = new List<UserInfo>();
 
-            string[] lines = File.ReadAllLines(_databaseFilePath);
-
-            foreach (string line in lines)
+            using (var connection = new SqliteConnection(_connectionString))
             {
+                connection.Open();
 
-                string[] parts = line.Split('|');
+                var command = connection.CreateCommand();
 
-                if (parts.Length == 3)
+                command.CommandText = "SELECT ID, Username, PasswordHash FROM Users;";
+
+                using (var reader = command.ExecuteReader())
                 {
 
-                    UserInfo user = new UserInfo
+                    while (reader.Read()) 
                     {
 
-                        ID = int.Parse(parts[0]),
+                        userList.Add(new UserInfo
+                        {
 
-                        username = parts[1],
+                            ID = reader.GetInt32(0),
 
-                        password = parts[2] 
+                            username = reader.GetString(1),
 
-                    };
+                            password = reader.GetString(2)
 
-                    UserManagerObject.Add(user.ID, user);
+                        });
+                    }
                 }
             }
+            return userList;
         }
 
-        private void SaveUserToFile(UserInfo user)
+        public UserInfo? GetUserByName(string targetUsername)
         {
-            string directoryPath = Path.GetDirectoryName(_databaseFilePath);
 
-            if (!Directory.Exists(directoryPath))
+            using (var connection = new SqliteConnection(_connectionString))
             {
 
-                Directory.CreateDirectory(directoryPath);
+                connection.Open();
+
+                var command = connection.CreateCommand();
+
+                command.CommandText = "SELECT ID, Username, PasswordHash FROM Users WHERE Username = $user;";
+
+                command.Parameters.AddWithValue("$user", targetUsername);
+
+                using (var reader = command.ExecuteReader())
+                {
+
+                    if (reader.Read()) // Read the first row found
+                    {
+
+                        return new UserInfo
+                        {
+
+                            ID = reader.GetInt32(0),
+
+                            username = reader.GetString(1),
+
+                            password = reader.GetString(2)
+
+                        };
+                    }
+                }
+            }
+            return null;
+        }
+
+        public UserInfo? GetUserById(int userId)
+        {
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+
+                connection.Open();
+
+                var command = connection.CreateCommand();
+
+                command.CommandText = "SELECT ID, Username, PasswordHash FROM Users WHERE ID = $id;";
+
+                command.Parameters.AddWithValue("$id", userId);
+
+                using (var reader = command.ExecuteReader())
+                {
+
+                    if (reader.Read())
+                    {
+
+                        return new UserInfo
+                        {
+
+                            ID = reader.GetInt32(0),
+
+                            username = reader.GetString(1),
+
+                            password = reader.GetString(2)
+
+                        };
+                    }
+                }
+            }
+            return null;
+
+        }
+
+        public List<UserInfo> GetAllUsersExcept(int excludedUserId)
+        {
+            List<UserInfo> userList = new List<UserInfo>();
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+
+                connection.Open();
+
+                var command = connection.CreateCommand();
+
+                command.CommandText = "SELECT ID, Username, PasswordHash FROM Users WHERE ID != $id;";
+
+                command.Parameters.AddWithValue("$id", excludedUserId);
+
+                using (var reader = command.ExecuteReader())
+                {
+
+                    while (reader.Read()) // Loop through all rows found
+                    {
+
+                        userList.Add(new UserInfo
+                        {
+
+                            ID = reader.GetInt32(0),
+
+                            username = reader.GetString(1),
+
+                            password = reader.GetString(2)
+
+                        });
+                    }
+                }
+            }
+            return userList;
+        }
+
+        public bool VerifyUserPassword(string targetUsername, string plainTextPassword)
+        {
+
+            UserInfo existingUser = GetUserByName(targetUsername);
+
+            if (existingUser != null)
+            {
+
+                string hashedInput = HashPassword(plainTextPassword);
+
+                return existingUser.password == hashedInput;
 
             }
-
-            string line = $"{user.ID}|{user.username}|{user.password}\n";
-
-            File.AppendAllText(_databaseFilePath, line);
+            return false;
 
         }
 
@@ -93,106 +234,6 @@ namespace Server_for_ChatApp.UserManagers
             }
         }
 
-        public bool VerifyUserPassword(string targetUsername, string plainTextPassword)
-        {
-            UserInfo existingUser = GetUserByName(targetUsername);
-
-            if (existingUser != null)
-            {
-
-                string hashedInput = HashPassword(plainTextPassword);
-
-                return existingUser.password == hashedInput;
-
-            }
-            return false;
-        }
-
-        public UserInfo CreateAndAddUser(string username, string password)
-        {
-
-            int newId = GenerateRandomUserID();
-
-            string hashedPassword = HashPassword(password);
-
-            UserInfo newUser = new UserInfo
-            {
-
-                ID = newId,
-
-                password = hashedPassword, 
-
-                username = username
-
-            };
-
-            UserManagerObject.Add(newId, newUser);
-
-            SaveUserToFile(newUser);
-
-            return newUser;
-
-        }
-
-        public void RemoveUser(int userId)
-        {
-
-            if (UserManagerObject.ContainsKey(userId))
-            {
-
-                UserManagerObject.Remove(userId);
-
-            }
-        }
-
-
-        public UserInfo GetUserById(int userId)
-        {
-
-            if (UserManagerObject.TryGetValue(userId, out UserInfo user))
-            {
-
-                return user;
-
-            }
-            return null;
-
-        }
-
-        public List<UserInfo> GetAllUsers()
-        {
-
-            return UserManagerObject.Values.ToList();
-
-        }
-
-        public List<UserInfo> GetAllUsersExcept(int excludedUserId)
-        {
-
-            return UserManagerObject.Values.Where(u => u.ID != excludedUserId).ToList();
-
-        }
-
-        public UserInfo GetUserByName(string targetUsername)
-        {
-
-            return UserManagerObject.Values.FirstOrDefault(u => u.username.Equals(targetUsername, StringComparison.OrdinalIgnoreCase));
-
-        }
-
-        public string GetUserPassword(string targetUsername)
-        {
-            UserInfo existingUser = GetUserByName(targetUsername);
-
-            if (existingUser != null)
-            {
-                return existingUser.password;
-            }
-
-            return null;
-        }
-
-        //Random process to assign ID's to new users -- 00 is assumed to be server and is thus not avaliable
         public int GenerateRandomUserID()
         {
 
@@ -201,10 +242,10 @@ namespace Server_for_ChatApp.UserManagers
 
                 int randomNumber = _random.Next(1, 255);
 
-                if (!UserManagerObject.ContainsKey(randomNumber))
+                if (GetUserById(randomNumber) == null)
                 {
 
-                    return randomNumber; 
+                    return randomNumber;
 
                 }
             }

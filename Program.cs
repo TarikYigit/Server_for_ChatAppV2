@@ -1,6 +1,7 @@
 ﻿using Server_for_ChatApp;
 using Server_for_ChatApp.ConnectionManagers;
 using Server_for_ChatApp.Interfaces;
+using Server_for_ChatApp.Database; 
 using Server_for_ChatApp.Interfaces.RequestInterfaces;
 using Server_for_ChatApp.Messages.ClientToServer;
 using Server_for_ChatApp.Messages.ServerToClient;
@@ -60,8 +61,6 @@ namespace ServerForChatApp
         public UserManager Users;
 
         public ConnectionManager Connections;
-
-        public Dictionary<string, NetworkStream> ActiveConnections = new Dictionary<string, NetworkStream>();
 
         public IOfflineMessageStorage OfflineStorage = new PermanentOfflineMessageStorage();
 
@@ -264,7 +263,9 @@ namespace ServerForChatApp
 
             int port = 5000;
 
-            UserManager masterUserManager = new UserManager();
+            DatabaseManager myDatabase = new DatabaseManager();
+
+            UserManager masterUserManager = new UserManager(myDatabase);
 
             TCPServer server = new TCPServer(port, masterUserManager);
 

@@ -6,10 +6,13 @@ using System.Threading.Tasks;
 
 namespace Server_for_ChatApp.UserManagers
 {
+
     internal class PasswordManager
     {
+
         public static bool IsPasswordStrong(string password)
         {
+
             if (string.IsNullOrWhiteSpace(password)) return false;
 
             bool hasMinLength = password.Length >= 8;
@@ -23,14 +26,7 @@ namespace Server_for_ChatApp.UserManagers
             bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
 
             return hasMinLength && hasUpperCase && hasLowerCase && hasDigits && hasSpecial;
+
         }
     }
 }
-
-
-// SaveUser adı password
-// GetUser
-// CheckUserPassword
-
-// Encryption 
-// Hashing 

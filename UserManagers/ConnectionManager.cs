@@ -7,7 +7,7 @@ namespace Server_for_ChatApp.ConnectionManagers
 
     public class ConnectionManager
     {
-        private Dictionary<int, NetworkStream> _activeConnections;
+        public Dictionary<int, NetworkStream> _activeConnections;
 
         public ConnectionManager()
         {
@@ -89,6 +89,7 @@ namespace Server_for_ChatApp.ConnectionManagers
 
         public static void Send(NetworkStream stream, INetworkMessage message)
         {
+
             Send(stream, message.GetId(), message.ToBytes());
 
         }
