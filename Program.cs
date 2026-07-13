@@ -100,6 +100,19 @@ namespace ServerForChatApp
         {
             List<UserInfo> allUsers = Users.GetAllUsers();
 
+            List<int> onlineUserIds = new List<int>();
+
+            foreach (var user in allUsers)
+            {
+
+                if (Connections.IsUserOnline(user.ID))
+                {
+
+                    onlineUserIds.Add(user.ID);
+
+                }
+            }
+
             foreach (UserInfo targetUser in allUsers)
             {
                 if (Connections.IsUserOnline(targetUser.ID))
@@ -109,7 +122,8 @@ namespace ServerForChatApp
 
                     List<UserInfo> otherUsers = Users.GetAllUsersExcept(targetUser.ID);
 
-                    GetUserListResponse listResponse = new GetUserListResponse(otherUsers);
+
+                    GetUserListResponse listResponse = new GetUserListResponse(otherUsers, onlineUserIds);
 
                     try
                     {

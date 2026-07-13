@@ -132,7 +132,9 @@ namespace Server_for_ChatApp.StateMachines
 
                                     List<UserInfo> userList = new();
 
-                                    return new GetUserListResponse(userList);
+                                    List<int> ints = new List<int>();
+
+                                    return new GetUserListResponse(userList,ints);
 
                                 }
 
@@ -192,7 +194,20 @@ namespace Server_for_ChatApp.StateMachines
 
                                     List<UserInfo> userList = _users.GetAllUsersExcept(myRequest.GetUserID());
 
-                                    return new GetUserListResponse(userList);
+                                    List<int> activeList = new List<int>();
+
+                                    foreach (UserInfo user in userList)
+                                    {
+
+                                        if (_connections.IsUserOnline(user.ID))
+                                        {
+
+                                            activeList.Add(user.ID);
+
+                                        }
+                                    }
+
+                                    return new GetUserListResponse(userList, activeList);
 
                                 }
 
