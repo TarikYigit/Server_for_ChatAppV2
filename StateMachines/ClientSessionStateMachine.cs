@@ -204,6 +204,7 @@ namespace Server_for_ChatApp.StateMachines
                                         {
 
 
+
                                             ConnectionManager.Send(myRequest.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), myServer.Connections);
 
                                         }
@@ -217,6 +218,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                     return null;
                                 }
+
                             case MessageId.FETCH_OFFLINE_MESSAGES:
                                 {
 
