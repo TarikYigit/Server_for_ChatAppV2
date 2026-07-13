@@ -8,7 +8,7 @@ namespace Server_for_ChatApp.Vault
     public class PermanentOfflineMessageStorage : IOfflineMessageStorage
     {
 
-        private string myFile = @"C:\Users\Tarık\Desktop\Message_Save.txt";
+        private string myFile = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Message_Save.txt";
 
         public void AddNewMessageForUser(byte fromId, byte toId, byte[] data)
         {
