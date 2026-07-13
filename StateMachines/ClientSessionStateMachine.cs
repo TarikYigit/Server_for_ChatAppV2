@@ -26,16 +26,24 @@ namespace Server_for_ChatApp.StateMachines
 
             public int CurrentUserId { get; private set; } = 0;
 
-            public TCPServer myServer;
+            private readonly IUsers _users;
+
+            private IOfflineMessageStorage _offlineMessageStorage;
+
+            private readonly IConnections _connections;
 
             private NetworkStream myStream;
 
-            public ClientSession(TCPServer server, NetworkStream stream)
+            public ClientSession(IUsers users, IConnections connections, IOfflineMessageStorage offlineMessageStorage, NetworkStream stream)
             {
 
-                myServer = server;
+                _users = users;
+
+                _connections = connections;
 
                 myStream = stream;
+
+                _offlineMessageStorage = offlineMessageStorage;
 
             }
 
@@ -55,7 +63,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                     RegisterRequest myRequest = (RegisterRequest)request;
 
-                                    UserInfo existingUser = myServer.Users.GetUserByName(myRequest.GetUsername());
+                                    UserInfo existingUser = _users.GetUserByName(myRequest.GetUsername());
 
                                     bool IsPasswordStrong = PasswordManager.IsPasswordStrong(myRequest.GetPassword());
 
@@ -71,11 +79,11 @@ namespace Server_for_ChatApp.StateMachines
                                         return new RegisterResponse(0, false, false);
 
                                     }
-                                    UserInfo newUser = myServer.Users.CreateAndAddUser(myRequest.GetUsername(), myRequest.GetPassword());
+                                    UserInfo newUser = _users.CreateAndAddUser(myRequest.GetUsername(), myRequest.GetPassword());
 
                                     CurrentUserId = newUser.ID;
 
-                                    myServer.Connections.AddConnection(newUser.ID, myStream);
+                                    _connections.AddConnection(newUser.ID, myStream);
 
                                     currentState = LogState.LoggedIn; // state transition
 
@@ -92,14 +100,14 @@ namespace Server_for_ChatApp.StateMachines
 
                                     string providedPassword = myRequest.GetPassword();
 
-                                    UserInfo existingUser = myServer.Users.GetUserByName(requestedName);
+                                    UserInfo existingUser = _users.GetUserByName(requestedName);
 
-                                    if (existingUser != null && myServer.Users.VerifyUserPassword(myRequest.GetUsername(), myRequest.GetPassword()))
+                                    if (existingUser != null && _users.VerifyUserPassword(myRequest.GetUsername(), myRequest.GetPassword()))
                                     {
 
                                         CurrentUserId = existingUser.ID;
 
-                                        myServer.Connections.AddConnection(existingUser.ID, myStream);
+                                        _connections.AddConnection(existingUser.ID, myStream);
 
                                         currentState = LogState.LoggedIn; // state transition
 
@@ -182,7 +190,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                     GetUserListRequest myRequest = (GetUserListRequest)request;
 
-                                    List<UserInfo> userList = myServer.Users.GetAllUsersExcept(myRequest.GetUserID());
+                                    List<UserInfo> userList = _users.GetAllUsersExcept(myRequest.GetUserID());
 
                                     return new GetUserListResponse(userList);
 
@@ -193,48 +201,59 @@ namespace Server_for_ChatApp.StateMachines
 
                                     SendMessageRequest myRequest = (SendMessageRequest)request;
 
-                                    if (myServer.Users.GetUserById(myRequest.GetReceiverId()) != null)
-                                    {
+                                    byte receiverId = (byte)myRequest.GetReceiverId();
 
-                                        MessageSendNowRequest routingRequest = new MessageSendNowRequest(myRequest.GetReceiverId(), myServer.Connections);
+                                    byte senderId = (byte)myRequest.GetSenderId();
+
+                                    if (_users.GetUserById(receiverId) != null)
+                                    {
 
                                         MessageResponse formattedMessage = new MessageResponse(myRequest);
 
-                                        if (routingRequest.SendNow)
+                                        if (_connections.IsUserOnline(receiverId))
                                         {
 
+                                            NetworkStream targetStream = _connections.GetStream(receiverId);
 
-                                            ConnectionManager.Send(myRequest.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), myServer.Connections);
+                                            ConnectionManager.Send(formattedMessage.GetId(), formattedMessage.ToBytes(), targetStream);
 
                                         }
                                         else
                                         {
 
-                                            myServer.OfflineStorage.AddNewMessageForUser((byte)myRequest.GetSenderId(), (byte)myRequest.GetReceiverId(), formattedMessage.ToBytes());
+                                            _offlineMessageStorage.AddNewMessageForUser(senderId, receiverId, formattedMessage.ToBytes());
 
                                         }
                                     }
 
                                     return null;
                                 }
+
                             case MessageId.FETCH_OFFLINE_MESSAGES:
                                 {
 
                                     FetchOfflineMessageRequest myRequest = (FetchOfflineMessageRequest)request;
 
-                                    List<byte[]> messages = myServer.OfflineStorage.GetOfflineMessagesForUser(myRequest.GetUserID());
+                                    byte targetUserId = (byte)myRequest.GetUserID();
 
-                                    foreach (byte[] messagePayload in messages)
+                                    List<byte[]> messages = _offlineMessageStorage.GetOfflineMessagesForUser(targetUserId);
+
+                                    if (messages.Count > 0 && _connections.IsUserOnline(targetUserId))
                                     {
 
-                                        ConnectionManager.Send(myRequest.GetUserID(), (byte)MessageId.SEND_MESSAGE, messagePayload, myServer.Connections);
+                                        NetworkStream targetStream = _connections.GetStream(targetUserId);
 
+                                        foreach (byte[] messagePayload in messages)
+                                        {
+
+                                            ConnectionManager.Send((byte)MessageId.SEND_MESSAGE, messagePayload, targetStream);
+
+                                        }
+
+                                        _offlineMessageStorage.ClearOfflineMessagesForUser(targetUserId);
                                     }
 
-                                    myServer.OfflineStorage.ClearOfflineMessagesForUser(myRequest.GetUserID());
-
                                     return null;
-
                                 }
 
                         }

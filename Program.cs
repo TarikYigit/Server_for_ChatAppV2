@@ -133,7 +133,7 @@ namespace ServerForChatApp
 
             byte[] headerBuffer = new byte[5];
 
-            ClientSession session = new ClientSession(this, stream);
+            ClientSession session = new ClientSession(this.Users, this.Connections, this.OfflineStorage, stream);
 
             try
             {
@@ -212,7 +212,9 @@ namespace ServerForChatApp
 
                                 INetworkMessage response = session.ExecuteRequest(request);
 
-                                ConnectionManager.Send(request.GetUserID(), response.GetId(), response.ToBytes(), Connections);
+                                NetworkStream targetStream = Connections.GetStream(request.GetUserID());
+
+                                ConnectionManager.Send(response.GetId(), response.ToBytes(), targetStream);
 
                             }
                             break;

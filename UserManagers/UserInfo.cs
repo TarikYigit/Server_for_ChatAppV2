@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Server_for_ChatApp.UserManagers
 {
-    internal class UserInfo
+    public class UserInfo
     {
         public int ID { get; set; }
 
