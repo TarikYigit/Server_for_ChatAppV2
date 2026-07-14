@@ -213,7 +213,6 @@ namespace Server_for_ChatApp.StateMachines
 
                             case MessageId.SEND_MESSAGE:
                                 {
-
                                     SendMessageRequest myRequest = (SendMessageRequest)request;
 
                                     byte receiverId = (byte)myRequest.GetReceiverId();
@@ -222,12 +221,10 @@ namespace Server_for_ChatApp.StateMachines
 
                                     if (_users.GetUserById(receiverId) != null)
                                     {
-
                                         MessageResponse formattedMessage = new MessageResponse(myRequest);
 
                                         if (_connections.IsUserOnline(receiverId))
                                         {
-
                                             NetworkStream targetStream = _connections.GetStream(receiverId);
 
                                             ConnectionManager.Send(formattedMessage.GetId(), formattedMessage.ToBytes(), targetStream);
