@@ -1,4 +1,6 @@
-﻿using Server_for_ChatApp.Managers.UserManagers;
+﻿using Server_for_ChatApp.UserManagers;
+using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace ServerForChatApp

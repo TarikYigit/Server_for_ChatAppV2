@@ -1,6 +1,9 @@
 ﻿using Server_for_ChatApp.Interfaces;
 using Server_for_ChatApp.Messages.ClientToServer;
 using ServerForChatApp;
+using System;
+using System.IO;
+using System.Text;
 
 namespace Server_for_ChatApp.Messages.ServerToClient
 {
@@ -8,14 +11,10 @@ namespace Server_for_ChatApp.Messages.ServerToClient
     {
         private SendMessageRequest _messageData;
 
-        private long _serverTimestamp;
-
         public MessageResponse(SendMessageRequest messageData)
         {
 
             _messageData = messageData;
-
-            _serverTimestamp = DateTime.Now.Ticks;
 
         }
 
@@ -35,8 +34,6 @@ namespace Server_for_ChatApp.Messages.ServerToClient
             {
 
                 writer.Write(_messageData.GetSenderId());
-
-                writer.Write(_serverTimestamp);
 
                 writer.Write(_messageData.GetMessageBytes());
 

@@ -1,12 +1,18 @@
-﻿using Server_for_ChatApp.Interfaces;
+﻿using Server_for_ChatApp.ConnectionManagers;
+using Server_for_ChatApp.Interfaces;
 using Server_for_ChatApp.Interfaces.RequestInterfaces;
-using Server_for_ChatApp.Managers.GroupChatManager;
-using Server_for_ChatApp.Managers.UserManagers;
 using Server_for_ChatApp.Messages.ClientToServer;
+using Server_for_ChatApp.Messages.ServerInternals;
 using Server_for_ChatApp.Messages.ServerToClient;
+using Server_for_ChatApp.UserManagers;
 using ServerForChatApp;
 using ServerForChatApp.Messages.ClientToServer;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Server_for_ChatApp.StateMachines
 {
@@ -20,28 +26,16 @@ namespace Server_for_ChatApp.StateMachines
 
             public int CurrentUserId { get; private set; } = 0;
 
-            private readonly IUsers _users;
-
-            private IOfflineMessageStorage _offlineMessageStorage;
-
-            private readonly IConnections _connections;
-
-            private IGroupChat _groupManager;
+            public TCPServer myServer;
 
             private NetworkStream myStream;
 
-            public ClientSession(IUsers users, IConnections connections, IOfflineMessageStorage offlineMessageStorage, NetworkStream stream, IGroupChat groupChat)
+            public ClientSession(TCPServer server, NetworkStream stream)
             {
 
-                _users = users;
-
-                _connections = connections;
+                myServer = server;
 
                 myStream = stream;
-
-                _offlineMessageStorage = offlineMessageStorage;
-
-                _groupManager = groupChat;
 
             }
 
@@ -61,7 +55,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                     RegisterRequest myRequest = (RegisterRequest)request;
 
-                                    UserInfo existingUser = _users.GetUserByName(myRequest.GetUsername());
+                                    UserInfo existingUser = myServer.Users.GetUserByName(myRequest.GetUsername());
 
                                     bool IsPasswordStrong = PasswordManager.IsPasswordStrong(myRequest.GetPassword());
 
@@ -77,11 +71,11 @@ namespace Server_for_ChatApp.StateMachines
                                         return new RegisterResponse(0, false, false);
 
                                     }
-                                    UserInfo newUser = _users.CreateAndAddUser(myRequest.GetUsername(), myRequest.GetPassword());
+                                    UserInfo newUser = myServer.Users.CreateAndAddUser(myRequest.GetUsername(), myRequest.GetPassword());
 
                                     CurrentUserId = newUser.ID;
 
-                                    _connections.AddConnection(newUser.ID, myStream);
+                                    myServer.Connections.AddConnection(newUser.ID, myStream);
 
                                     currentState = LogState.LoggedIn; // state transition
 
@@ -98,14 +92,14 @@ namespace Server_for_ChatApp.StateMachines
 
                                     string providedPassword = myRequest.GetPassword();
 
-                                    UserInfo existingUser = _users.GetUserByName(requestedName);
+                                    UserInfo existingUser = myServer.Users.GetUserByName(requestedName);
 
-                                    if (existingUser != null && _users.VerifyUserPassword(myRequest.GetUsername(), myRequest.GetPassword()))
+                                    if (existingUser != null && myServer.Users.VerifyUserPassword(myRequest.GetUsername(), myRequest.GetPassword()))
                                     {
 
                                         CurrentUserId = existingUser.ID;
 
-                                        _connections.AddConnection(existingUser.ID, myStream);
+                                        myServer.Connections.AddConnection(existingUser.ID, myStream);
 
                                         currentState = LogState.LoggedIn; // state transition
 
@@ -130,9 +124,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                     List<UserInfo> userList = new();
 
-                                    List<int> ints = new List<int>();
-
-                                    return new GetUserListResponse(userList,ints);
+                                    return new GetUserListResponse(userList);
 
                                 }
 
@@ -145,22 +137,6 @@ namespace Server_for_ChatApp.StateMachines
                                 }
 
                             case MessageId.FETCH_OFFLINE_MESSAGES:
-                                {
-
-                                    //no response is sent to client for this message type
-                                    return null;
-
-                                }
-
-                            case MessageId.CREATE_GROUP:
-                                {
-
-                                    //no response is sent to client for this message type
-                                    return null;
-
-                                }
-
-                            case MessageId.GROUP_CHAT_MESSAGE:
                                 {
 
                                     //no response is sent to client for this message type
@@ -206,154 +182,61 @@ namespace Server_for_ChatApp.StateMachines
 
                                     GetUserListRequest myRequest = (GetUserListRequest)request;
 
-                                    List<UserInfo> userList = _users.GetAllUsersExcept(myRequest.GetUserID());
+                                    List<UserInfo> userList = myServer.Users.GetAllUsersExcept(myRequest.GetUserID());
 
-                                    List<int> activeList = new List<int>();
-
-                                    foreach (UserInfo user in userList)
-                                    {
-
-                                        if (_connections.IsUserOnline(user.ID))
-                                        {
-
-                                            activeList.Add(user.ID);
-
-                                        }
-                                    }
-
-                                    return new GetUserListResponse(userList, activeList);
+                                    return new GetUserListResponse(userList);
 
                                 }
 
                             case MessageId.SEND_MESSAGE:
                                 {
+
                                     SendMessageRequest myRequest = (SendMessageRequest)request;
 
-                                    byte receiverId = (byte)myRequest.GetReceiverId();
-
-                                    byte senderId = (byte)myRequest.GetSenderId();
-
-                                    if (_users.GetUserById(receiverId) != null)
+                                    if (myServer.Users.GetUserById(myRequest.GetReceiverId()) != null)
                                     {
+
+                                        MessageSendNowRequest routingRequest = new MessageSendNowRequest(myRequest.GetReceiverId(), myServer.Connections);
+
                                         MessageResponse formattedMessage = new MessageResponse(myRequest);
 
-                                        if (_connections.IsUserOnline(receiverId))
+                                        if (routingRequest.SendNow)
                                         {
-                                            NetworkStream targetStream = _connections.GetStream(receiverId);
 
-                                            ConnectionManager.Send(formattedMessage.GetId(), formattedMessage.ToBytes(), targetStream);
+
+                                            ConnectionManager.Send(myRequest.GetReceiverId(), formattedMessage.GetId(), formattedMessage.ToBytes(), myServer.Connections);
 
                                         }
                                         else
                                         {
 
-                                            _offlineMessageStorage.AddNewMessageForUser(senderId, receiverId, formattedMessage.ToBytes());
+                                            myServer.OfflineStorage.AddNewMessageForUser((byte)myRequest.GetSenderId(), (byte)myRequest.GetReceiverId(), formattedMessage.ToBytes());
 
                                         }
                                     }
 
                                     return null;
                                 }
-
                             case MessageId.FETCH_OFFLINE_MESSAGES:
                                 {
 
                                     FetchOfflineMessageRequest myRequest = (FetchOfflineMessageRequest)request;
 
-                                    byte targetUserId = (byte)myRequest.GetUserID();
+                                    List<byte[]> messages = myServer.OfflineStorage.GetOfflineMessagesForUser(myRequest.GetUserID());
 
-                                    if (_connections.IsUserOnline(targetUserId))
+                                    foreach (byte[] messagePayload in messages)
                                     {
 
-                                        NetworkStream targetStream = _connections.GetStream(targetUserId);
-
-                                        List<byte[]> messages = _offlineMessageStorage.GetOfflineMessagesForUser(targetUserId);
-
-                                        if (messages.Count > 0)
-                                        {
-                                            foreach (byte[] messagePayload in messages)
-                                            {
-
-                                                ConnectionManager.Send((byte)MessageId.SEND_MESSAGE, messagePayload, targetStream);
-
-                                            }
-                                            _offlineMessageStorage.ClearOfflineMessagesForUser(targetUserId);
-                                        }
-
-                                        List<byte[]> groupMessages = _offlineMessageStorage.GetOfflineGroupMessagesForUser(targetUserId);
-
-                                        if (groupMessages.Count > 0)
-                                        {
-                                            foreach (byte[] groupPayload in groupMessages)
-                                            {
-
-                                                ConnectionManager.Send((byte)MessageId.GROUP_CHAT_MESSAGE, groupPayload, targetStream);
-
-                                            }
-                                            _offlineMessageStorage.ClearOfflineGroupMessagesForUser(targetUserId);
-                                        }
-                                    }
-                                    return null;
-                                }
-
-                            case MessageId.CREATE_GROUP:
-                                {
-                                    CreateGroupRequest myRequest = (CreateGroupRequest)request;
-
-                                    List<int> usersToInvite = myRequest.UserIdsToInvite;
-
-
-                                    if (!usersToInvite.Contains(CurrentUserId))
-                                    {
-
-                                        usersToInvite.Add(CurrentUserId);
+                                        ConnectionManager.Send(myRequest.GetUserID(), (byte)MessageId.SEND_MESSAGE, messagePayload, myServer.Connections);
 
                                     }
 
-                                    GroupChatInfo newGroup = _groupManager.CreateGroupChat(myRequest.GroupName, usersToInvite);
+                                    myServer.OfflineStorage.ClearOfflineMessagesForUser(myRequest.GetUserID());
 
                                     return null;
 
                                 }
-                            case MessageId.GROUP_CHAT_MESSAGE:
-                                {
-                                    GroupChatMessageRequest myRequest = (GroupChatMessageRequest)request;
 
-                                    byte senderId = myRequest.SenderId;
-
-                                    byte groupId = myRequest.GroupId;
-
-                                    GroupChatInfo group = _groupManager.GetGroupById(groupId);
-
-                                    if (group != null)
-                                    {
-                                        GroupMessageResponse formattedMessage = new GroupMessageResponse(senderId, groupId, myRequest.MessageBytes);
-
-                                        byte[] finalPayload = formattedMessage.ToBytes();
-
-                                        foreach (int memberId in group.GroupChatUsers)
-                                        {
-                                            if (memberId == senderId) continue;
-                                                
-                                            if (_connections.IsUserOnline(memberId))
-                                            {
-
-                                                NetworkStream targetStream = _connections.GetStream(memberId);
-
-                                                ConnectionManager.Send(formattedMessage.GetId(), finalPayload, targetStream);
-
-                                            }
-                                            else
-                                            {
-
-                                                _offlineMessageStorage.AddOfflineGroupMessage((byte)memberId, finalPayload);
-
-                                            }
-
-                                        }
-                                    }
-                                    return null;
-                                }
                         }
                         break;
                 }

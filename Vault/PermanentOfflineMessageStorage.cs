@@ -1,4 +1,7 @@
 ﻿using Server_for_ChatApp.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
 namespace Server_for_ChatApp.Vault
 {
@@ -7,18 +10,13 @@ namespace Server_for_ChatApp.Vault
 
         private string myFile = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Message_Save.txt";
 
-        private string offlineMessageGroupFile = @"C:\Users\tarik.dalkiran\Desktop\Workspace\OfflineVault\";
-
-
         public void AddNewMessageForUser(byte fromId, byte toId, byte[] data)
         {
 
             string base64Data = Convert.ToBase64String(data);
 
             string line = $"{fromId} {toId} {base64Data}";
-
             Console.WriteLine(line );
-
             File.AppendAllLines(myFile, new[] { line });
 
         }
@@ -85,36 +83,6 @@ namespace Server_for_ChatApp.Vault
             }
 
             File.WriteAllLines(myFile, linesToKeep);
-        }
-        public void AddOfflineGroupMessage(byte targetUserId, byte[] payload)
-        {
-            string filePath = Path.Combine(offlineMessageGroupFile, $"{targetUserId}_grp_{System.DateTime.Now.Ticks}.msg");
-
-            System.IO.File.WriteAllBytes(filePath, payload);
-        }
-
-        public List<byte[]> GetOfflineGroupMessagesForUser(byte userId)
-        {
-            List<byte[]> messages = new List<byte[]>();
-
-            foreach (string file in Directory.GetFiles(offlineMessageGroupFile, $"{userId}_grp_*.msg"))
-            {
-
-                messages.Add(System.IO.File.ReadAllBytes(file));
-
-            }
-            return messages;
-        }
-
-        public void ClearOfflineGroupMessagesForUser(byte userId)
-        {
-
-            foreach (string file in Directory.GetFiles(offlineMessageGroupFile, $"{userId}_grp_*.msg"))
-            {
-
-                System.IO.File.Delete(file);
-
-            }
         }
     }
 }

@@ -1,19 +1,20 @@
 ﻿using Microsoft.Data.Sqlite;
+using Server_for_ChatApp.Database;
+using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
-using Server_for_ChatApp.Interfaces;
 
-
-namespace Server_for_ChatApp.Managers.UserManagers
+namespace Server_for_ChatApp.UserManagers
 {
-    internal class UserManager : IUsers
+    internal class UserManager
     {
 
         private readonly string _connectionString;
 
         private Random _random;
 
-        public UserManager(DatabaseManager.DatabaseManager dbManager)
+        public UserManager(DatabaseManager dbManager)
         {
 
             _connectionString = dbManager.GetConnectionString();

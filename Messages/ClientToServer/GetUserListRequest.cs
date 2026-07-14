@@ -1,4 +1,5 @@
 ﻿using Server_for_ChatApp.Interfaces.RequestInterfaces;
+using System.IO;
 
 namespace ServerForChatApp.Messages.ClientToServer
 {

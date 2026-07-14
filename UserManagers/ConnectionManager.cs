@@ -1,10 +1,11 @@
 ﻿using Server_for_ChatApp.Interfaces;
+using System.Collections.Generic;
 using System.Net.Sockets;
 
-namespace Server_for_ChatApp.Managers.UserManagers
+namespace Server_for_ChatApp.ConnectionManagers
 {
 
-    public class ConnectionManager : IConnections
+    public class ConnectionManager
     {
         public Dictionary<int, NetworkStream> _activeConnections;
 
@@ -12,18 +13,6 @@ namespace Server_for_ChatApp.Managers.UserManagers
         {
 
             _activeConnections = new Dictionary<int, NetworkStream>();
-
-        }
-
-        public List<int> GetAllOnline()
-        {
-
-            List<int> UserIDs = new List<int>();
-
-            foreach (var connection in _activeConnections.Keys)
-                UserIDs.Add(connection);
-
-            return UserIDs;
 
         }
 
@@ -74,8 +63,11 @@ namespace Server_for_ChatApp.Managers.UserManagers
 
         }
 
-        public static void Send(byte messageId, byte[] payload, NetworkStream stream)
+        public static void Send(int userID, byte messageId, byte[] payload, ConnectionManager serverConnections) 
         {
+
+            NetworkStream stream = serverConnections.GetStream(userID);
+
             if (stream != null)
             {
 
@@ -83,7 +75,6 @@ namespace Server_for_ChatApp.Managers.UserManagers
 
             }
         }
-
 
         public static void Send(NetworkStream stream, byte messageId, byte[] payload)
         {
