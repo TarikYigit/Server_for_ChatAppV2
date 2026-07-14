@@ -1,7 +1,5 @@
 ﻿using Server_for_ChatApp.Interfaces;
-using Server_for_ChatApp.UserManagers;
 using ServerForChatApp;
-using System.IO;
 
 namespace Server_for_ChatApp.Messages.ServerToClient
 {

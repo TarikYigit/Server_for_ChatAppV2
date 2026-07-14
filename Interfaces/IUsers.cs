@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Server_for_ChatApp.UserManagers; 
+﻿using Server_for_ChatApp.Managers.UserManagers;
 
 namespace Server_for_ChatApp.Interfaces
 {

@@ -1,8 +1,7 @@
 ﻿using Server_for_ChatApp.Interfaces;
-using System.Collections.Generic;
 using System.Net.Sockets;
 
-namespace Server_for_ChatApp.ConnectionManagers
+namespace Server_for_ChatApp.Managers.UserManagers
 {
 
     public class ConnectionManager : IConnections
