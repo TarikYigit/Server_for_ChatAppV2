@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-
-namespace ServerForChatApp
+﻿namespace ServerForChatApp
 {
     internal static class CheckOfflineMessages
     {

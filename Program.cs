@@ -1,25 +1,15 @@
-﻿using Server_for_ChatApp;
-using Server_for_ChatApp.ConnectionManagers;
+﻿using Server_for_ChatApp.GroupChatManager;
 using Server_for_ChatApp.Interfaces;
-using Server_for_ChatApp.Database; 
-using Server_for_ChatApp.Interfaces.RequestInterfaces;
+using Server_for_ChatApp.Managers.DatabaseManager;
+using Server_for_ChatApp.Managers.GroupChatManager;
+using Server_for_ChatApp.Managers.UserManagers;
 using Server_for_ChatApp.Messages.ClientToServer;
 using Server_for_ChatApp.Messages.ServerToClient;
-using Server_for_ChatApp.UserManagers;
 using Server_for_ChatApp.Vault;
 using ServerForChatApp.Messages.ClientToServer;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Text.RegularExpressions;
 using static Server_for_ChatApp.StateMachines.ClientSessionStateMachine;
-using static System.Collections.Specialized.BitVector32;
 
 namespace ServerForChatApp
 {
@@ -37,6 +27,12 @@ namespace ServerForChatApp
         LOGIN = 5,
 
         FETCH_OFFLINE_MESSAGES = 6,
+
+        CREATE_GROUP = 7,
+
+        GROUP_CHAT_MESSAGE = 8,
+
+        GROUP_LIST = 9,
 
     }
 
@@ -64,7 +60,9 @@ namespace ServerForChatApp
 
         public IOfflineMessageStorage OfflineStorage = new PermanentOfflineMessageStorage();
 
-        public TCPServer(int port, UserManager userManager)
+        public IGroupChat GroupManager;
+
+        public TCPServer(int port, UserManager userManager, IGroupChat groupManager)
         {
 
             listener = new TcpListener(IPAddress.Loopback, port);
@@ -73,6 +71,7 @@ namespace ServerForChatApp
 
             this.Connections = new ConnectionManager();
 
+            this.GroupManager = groupManager;
         }
 
 
@@ -100,6 +99,19 @@ namespace ServerForChatApp
         {
             List<UserInfo> allUsers = Users.GetAllUsers();
 
+            List<int> onlineUserIds = new List<int>();
+
+            foreach (var user in allUsers)
+            {
+
+                if (Connections.IsUserOnline(user.ID))
+                {
+
+                    onlineUserIds.Add(user.ID);
+
+                }
+            }
+
             foreach (UserInfo targetUser in allUsers)
             {
                 if (Connections.IsUserOnline(targetUser.ID))
@@ -109,7 +121,8 @@ namespace ServerForChatApp
 
                     List<UserInfo> otherUsers = Users.GetAllUsersExcept(targetUser.ID);
 
-                    GetUserListResponse listResponse = new GetUserListResponse(otherUsers);
+
+                    GetUserListResponse listResponse = new GetUserListResponse(otherUsers, onlineUserIds);
 
                     try
                     {
@@ -125,6 +138,28 @@ namespace ServerForChatApp
             }
         }
 
+        public void BroadcastGroupList(int userId)
+        {
+            if (Connections.IsUserOnline(userId))
+            {
+                List<GroupChatInfo> userGroups = GroupManager.GetGroupsForUser(userId);
+
+                GroupListResponse listResponse = new GroupListResponse(userGroups);
+
+                try
+                {
+
+                    NetworkStream targetStream = Connections.GetStream(userId);
+
+                    ConnectionManager.Send(listResponse.GetId(), listResponse.ToBytes(), targetStream);
+
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
         public void HandleClient(TcpClient client)
         {
             LogState currentState = LogState.NotLoggedIn;
@@ -133,7 +168,7 @@ namespace ServerForChatApp
 
             byte[] headerBuffer = new byte[5];
 
-            ClientSession session = new ClientSession(this, stream);
+            ClientSession session = new ClientSession(this.Users, this.Connections, this.OfflineStorage, stream, this.GroupManager);
 
             try
             {
@@ -201,7 +236,8 @@ namespace ServerForChatApp
 
                                 BroadcastUserList();
 
-                               
+                                BroadcastGroupList(session.CurrentUserId); 
+
                             }
                             break;
 
@@ -212,7 +248,9 @@ namespace ServerForChatApp
 
                                 INetworkMessage response = session.ExecuteRequest(request);
 
-                                ConnectionManager.Send(request.GetUserID(), response.GetId(), response.ToBytes(), Connections);
+                                NetworkStream targetStream = Connections.GetStream(request.GetUserID());
+
+                                ConnectionManager.Send(response.GetId(), response.ToBytes(), targetStream);
 
                             }
                             break;
@@ -233,6 +271,46 @@ namespace ServerForChatApp
                                 FetchOfflineMessageRequest request = new FetchOfflineMessageRequest(payload);
 
                                 session.ExecuteRequest(request);
+
+                            }
+                            break;
+
+                        case MessageId.CREATE_GROUP:
+                            {
+
+                                CreateGroupRequest request = new CreateGroupRequest(payload);
+
+                                session.ExecuteRequest(request);
+
+                                BroadcastGroupList(session.CurrentUserId);
+
+                                foreach (int invitedId in request.UserIdsToInvite)
+                                {
+
+                                    if (invitedId != session.CurrentUserId)
+                                    {
+
+                                        BroadcastGroupList(invitedId);
+
+                                    }
+                                }
+                            }
+                            break;
+
+                        case MessageId.GROUP_CHAT_MESSAGE:
+                            {
+
+                                GroupChatMessageRequest request = new GroupChatMessageRequest(payload);
+
+                                session.ExecuteRequest(request);
+
+                            }
+                            break;
+
+                        case MessageId.GROUP_LIST:
+                            {
+
+                                BroadcastGroupList(session.CurrentUserId);
 
                             }
                             break;
@@ -267,7 +345,9 @@ namespace ServerForChatApp
 
             UserManager masterUserManager = new UserManager(myDatabase);
 
-            TCPServer server = new TCPServer(port, masterUserManager);
+            GroupChatManager groupManager = new GroupChatManager(myDatabase);
+
+            TCPServer server = new TCPServer(port, masterUserManager, groupManager);
 
             server.Start();
 

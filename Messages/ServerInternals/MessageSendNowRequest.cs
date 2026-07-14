@@ -1,5 +1,5 @@
 ﻿using System.Net.Sockets;
-using Server_for_ChatApp.ConnectionManagers;
+using Server_for_ChatApp.Managers.UserManagers;
 
 namespace Server_for_ChatApp.Messages.ServerInternals
 {
