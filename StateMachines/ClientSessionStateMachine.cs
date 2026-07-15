@@ -85,6 +85,8 @@ namespace Server_for_ChatApp.StateMachines
 
                                     currentState = LogState.LoggedIn; // state transition
 
+                                    ServerLogger.LogAuth($"User '{myRequest.GetUsername()}' authenticated securely. Assigned User ID: {newUser.ID}");
+
                                     return new RegisterResponse(newUser.ID, true, true);
 
                                 }
@@ -254,6 +256,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                         if (_connections.IsUserOnline(receiverId))
                                         {
+
                                             NetworkStream targetStream = _connections.GetStream(receiverId);
 
                                             ConnectionManager.Send(formattedMessage.GetId(), formattedMessage.ToBytes(), targetStream);
@@ -286,6 +289,8 @@ namespace Server_for_ChatApp.StateMachines
 
                                         if (messages.Count > 0)
                                         {
+                                            ServerLogger.LogVault($"Flushing {messages.Count} pending 1-on-1 messages to User {targetUserId}.");
+
                                             foreach (byte[] messagePayload in messages)
                                             {
 
@@ -299,6 +304,8 @@ namespace Server_for_ChatApp.StateMachines
 
                                         if (groupMessages.Count > 0)
                                         {
+                                            ServerLogger.LogVault($"Flushing {groupMessages.Count} pending group messages to User {targetUserId}.");
+
                                             foreach (byte[] groupPayload in groupMessages)
                                             {
 
@@ -353,6 +360,8 @@ namespace Server_for_ChatApp.StateMachines
                                             if (_connections.IsUserOnline(memberId))
                                             {
 
+                                                ServerLogger.LogRoute($"Active stream found. Bouncing Group {groupId} msg to User {memberId}.");
+
                                                 NetworkStream targetStream = _connections.GetStream(memberId);
 
                                                 ConnectionManager.Send(formattedMessage.GetId(), finalPayload, targetStream);
@@ -360,6 +369,8 @@ namespace Server_for_ChatApp.StateMachines
                                             }
                                             else
                                             {
+
+                                                ServerLogger.LogVault($"User {memberId} is offline. Dropping {finalPayload.Length} bytes to local vault.");
 
                                                 _offlineMessageStorage.AddOfflineGroupMessage((byte)memberId, finalPayload);
 

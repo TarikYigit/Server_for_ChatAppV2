@@ -211,6 +211,7 @@ namespace ServerForChatApp
 
                     }
 
+                    ServerLogger.LogNetwork($"Received 0x{headerBuffer[0]:X2} ({(MessageId)headerBuffer[0]}) -> Payload: {payloadLength} bytes");
 
                     switch (messageId)
                     {
@@ -336,6 +337,8 @@ namespace ServerForChatApp
             }
             catch (Exception)
             {
+
+                ServerLogger.LogError($"Stream terminated for User {session.CurrentUserId}. ");
 
                 LogOutRequest request = new LogOutRequest((byte)session.CurrentUserId);
 
