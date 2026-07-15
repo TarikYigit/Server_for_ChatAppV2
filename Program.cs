@@ -1,5 +1,6 @@
 ﻿using Server_for_ChatApp.GroupChatManager;
 using Server_for_ChatApp.Interfaces;
+using Server_for_ChatApp.Interfaces.RequestInterfaces;
 using Server_for_ChatApp.Managers.DatabaseManager;
 using Server_for_ChatApp.Managers.GroupChatManager;
 using Server_for_ChatApp.Managers.UserManagers;
@@ -33,6 +34,8 @@ namespace ServerForChatApp
         GROUP_CHAT_MESSAGE = 8,
 
         GROUP_LIST = 9,
+
+        LEAVE_GROUP = 10,
 
     }
 
@@ -144,7 +147,7 @@ namespace ServerForChatApp
             {
                 List<GroupChatInfo> userGroups = GroupManager.GetGroupsForUser(userId);
 
-                GroupListResponse listResponse = new GroupListResponse(userGroups);
+                GroupListGet listResponse = new GroupListGet(userGroups);
 
                 try
                 {
@@ -309,9 +312,23 @@ namespace ServerForChatApp
 
                         case MessageId.GROUP_LIST:
                             {
+                                GroupListRequest request = new GroupListRequest(payload);
 
                                 BroadcastGroupList(session.CurrentUserId);
 
+                            }
+                            break;
+
+                        case MessageId.LEAVE_GROUP:
+                            {
+                                LeaveGroupRequest request = new LeaveGroupRequest(payload);
+
+                                INetworkMessage response = session.ExecuteRequest(request);
+
+                                if (response != null)
+                                {
+                                    ConnectionManager.Send(stream, response.GetId(), response.ToBytes());
+                                }
                             }
                             break;
                     }
