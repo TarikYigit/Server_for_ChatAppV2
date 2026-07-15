@@ -53,10 +53,34 @@ namespace Server_for_ChatApp.GroupChatManager
 
             return new GroupChatInfo
             {
+
                 GroupChatID = newId,
+
                 GroupName = groupName,
+
                 GroupChatUsers = userIds
+
             };
+        }
+
+        public void RemoveUserFromGroup(int groupId, int userId)
+        {
+            using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(_connectionString))
+            {
+
+                connection.Open();
+
+                var command = connection.CreateCommand();
+
+                command.CommandText = "DELETE FROM GroupMembers WHERE GroupID = $groupId AND UserID = $userId;";
+
+                command.Parameters.AddWithValue("$groupId", groupId);
+
+                command.Parameters.AddWithValue("$userId", userId);
+
+                command.ExecuteNonQuery();
+
+            }
         }
 
         public GroupChatInfo? GetGroupById(int groupId)

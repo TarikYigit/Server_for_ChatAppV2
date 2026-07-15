@@ -168,6 +168,21 @@ namespace Server_for_ChatApp.StateMachines
 
                                 }
 
+                            case MessageId.GROUP_LIST:
+                                {
+
+                                    //no response is sent to client for this message type
+                                    return null;
+
+                                }
+                            case MessageId.LEAVE_GROUP:
+                                {
+
+                                    //no response is sent to client for this message type
+                                    return null;
+
+                                }
+
                         }
                         break;
 
@@ -353,6 +368,33 @@ namespace Server_for_ChatApp.StateMachines
                                         }
                                     }
                                     return null;
+                                }
+
+                            case MessageId.GROUP_LIST:
+                                {
+                                    GroupListRequest myRequest = (GroupListRequest)request;
+
+                                    if (myRequest.RequestedUserId != CurrentUserId) //cross referance to ensure more security since the packet might be altered
+                                    {
+
+                                        return null; 
+
+                                    }
+
+                                    List<GroupChatInfo> myGroups = _groupManager.GetGroupsForUser(CurrentUserId);
+
+                                    return new GroupListResponse(myGroups);
+                                }
+
+                            case MessageId.LEAVE_GROUP:
+                                {
+                                    LeaveGroupRequest myRequest = (LeaveGroupRequest)request;
+
+                                    _groupManager.RemoveUserFromGroup(myRequest.GroupId, CurrentUserId);
+
+                                    List<GroupChatInfo> updatedGroups = _groupManager.GetGroupsForUser(CurrentUserId);
+
+                                    return new GroupListResponse(updatedGroups);
                                 }
                         }
                         break;

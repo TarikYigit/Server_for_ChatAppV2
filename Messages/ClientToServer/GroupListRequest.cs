@@ -1,46 +1,22 @@
 ﻿using Server_for_ChatApp.Interfaces;
-using Server_for_ChatApp.Managers.GroupChatManager;
-using ServerForChatApp;
+using Server_for_ChatApp.Interfaces.RequestInterfaces;
 
-using System.Text;
-
-namespace Server_for_ChatApp.Messages.ServerToClient
+namespace ServerForChatApp.Messages.ClientToServer
 {
-    public class GroupListResponse : INetworkMessage
+    public class GroupListRequest : IRequest
     {
-        private List<GroupChatInfo> _groups;
+        public byte RequestedUserId { get; private set; }
 
-        public GroupListResponse(List<GroupChatInfo> groups)
+        public GroupListRequest(byte[] payload)
         {
+            if (payload != null && payload.Length >= 1)
+            {
 
-            _groups = groups;
+                RequestedUserId = payload[0];
 
+            }
         }
 
         public byte GetId() => (byte)MessageId.GROUP_LIST;
-
-        public byte[] ToBytes()
-        {
-            using (MemoryStream ms = new MemoryStream())
-
-            using (BinaryWriter writer = new BinaryWriter(ms))
-            {
-                writer.Write((byte)_groups.Count);
-
-                foreach (var group in _groups)
-                {
-
-                    writer.Write((byte)group.GroupChatID);
-
-                    byte[] nameBytes = Encoding.UTF8.GetBytes(group.GroupName);
-
-                    writer.Write((byte)nameBytes.Length);
-
-                    writer.Write(nameBytes);
-
-                }
-                return ms.ToArray();
-            }
-        }
     }
 }
