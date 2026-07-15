@@ -183,5 +183,39 @@ namespace Server_for_ChatApp.GroupChatManager
             }
             return myGroups;
         }
+
+        public void AddUserToGroup(int groupId, int userId)
+        {
+            using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(_connectionString))
+            {
+
+                connection.Open();
+
+                var checkCmd = connection.CreateCommand();
+
+                checkCmd.CommandText = "SELECT COUNT(1) FROM GroupMembers WHERE GroupID = $groupId AND UserID = $userId;";
+
+                checkCmd.Parameters.AddWithValue("$groupId", groupId);
+
+                checkCmd.Parameters.AddWithValue("$userId", userId);
+
+                long exists = (long)checkCmd.ExecuteScalar();
+
+                if (exists == 0)
+                {
+
+                    var insertCmd = connection.CreateCommand();
+
+                    insertCmd.CommandText = "INSERT INTO GroupMembers (GroupID, UserID) VALUES ($groupId, $userId);";
+
+                    insertCmd.Parameters.AddWithValue("$groupId", groupId);
+
+                    insertCmd.Parameters.AddWithValue("$userId", userId);
+
+                    insertCmd.ExecuteNonQuery();
+
+                }
+            }
+        }
     }
 }

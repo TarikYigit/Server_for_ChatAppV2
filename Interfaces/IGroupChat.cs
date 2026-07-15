@@ -14,5 +14,8 @@ namespace Server_for_ChatApp.Interfaces
         List<GroupChatInfo> GetGroupsForUser(int userId);
 
         void RemoveUserFromGroup(int groupId, int userId);
+
+        void AddUserToGroup(int groupId, int userId);
+
     }
 }

@@ -185,6 +185,14 @@ namespace Server_for_ChatApp.StateMachines
 
                                 }
 
+                            case MessageId.ADD_USER_TO_GROUP:
+                                {
+
+                                    //no response is sent to client for this message type
+                                    return null;
+
+                                }
+
                         }
                         break;
 
@@ -406,6 +414,17 @@ namespace Server_for_ChatApp.StateMachines
                                     List<GroupChatInfo> updatedGroups = _groupManager.GetGroupsForUser(CurrentUserId);
 
                                     return new GroupListResponse(updatedGroups);
+                                }
+
+                            case MessageId.ADD_USER_TO_GROUP:
+                                {
+
+                                    AddUserToGroupRequest myRequest = (AddUserToGroupRequest)request;
+
+                                    _groupManager.AddUserToGroup(myRequest.GroupId, myRequest.UserToAddId);
+
+                                    return null; 
+
                                 }
                         }
                         break;
