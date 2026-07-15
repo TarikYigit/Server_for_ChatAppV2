@@ -39,6 +39,8 @@ namespace ServerForChatApp
 
         ADD_USER_TO_GROUP = 11,
 
+        TYPING_STATUS = 12,
+
     }
 
     enum LogState : int
@@ -343,6 +345,21 @@ namespace ServerForChatApp
                                 session.ExecuteRequest(request); 
 
                                 BroadcastGroupList(request.UserToAddId);
+                            }
+                            break;
+
+                        case MessageId.TYPING_STATUS:
+                            {
+                                byte targetUserId = payload[0];
+
+                                if (Connections.IsUserOnline(targetUserId))
+                                {
+
+                                    NetworkStream targetStream = Connections.GetStream(targetUserId);
+
+                                    ConnectionManager.Send((byte)MessageId.TYPING_STATUS, new byte[] { (byte)session.CurrentUserId }, targetStream);
+
+                                }
                             }
                             break;
                     }
