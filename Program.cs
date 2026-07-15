@@ -37,6 +37,8 @@ namespace ServerForChatApp
 
         LEAVE_GROUP = 10,
 
+        ADD_USER_TO_GROUP = 11,
+
     }
 
     enum LogState : int
@@ -330,6 +332,17 @@ namespace ServerForChatApp
                                 {
                                     ConnectionManager.Send(stream, response.GetId(), response.ToBytes());
                                 }
+                            }
+                            break;
+
+                        case MessageId.ADD_USER_TO_GROUP:
+                            {
+
+                                AddUserToGroupRequest request = new AddUserToGroupRequest(payload);
+
+                                session.ExecuteRequest(request); 
+
+                                BroadcastGroupList(request.UserToAddId);
                             }
                             break;
                     }
