@@ -258,9 +258,15 @@ namespace Server_for_ChatApp.StateMachines
 
                                     byte senderId = (byte)myRequest.GetSenderId();
 
+                                    int messageId = myRequest.GetMessageId();
+
                                     if (_users.GetUserById(receiverId) != null)
                                     {
                                         MessageResponse formattedMessage = new MessageResponse(myRequest);
+
+                                        MessageSentPacket sentPacket = new MessageSentPacket(messageId);
+
+                                        ConnectionManager.Send(sentPacket.GetId(), sentPacket.ToBytes(), myStream);
 
                                         if (_connections.IsUserOnline(receiverId))
                                         {
@@ -268,6 +274,10 @@ namespace Server_for_ChatApp.StateMachines
                                             NetworkStream targetStream = _connections.GetStream(receiverId);
 
                                             ConnectionManager.Send(formattedMessage.GetId(), formattedMessage.ToBytes(), targetStream);
+
+                                            MessageSeenPacket seenPacket = new MessageSeenPacket(messageId);
+
+                                            ConnectionManager.Send(seenPacket.GetId(), seenPacket.ToBytes(), myStream);
 
                                         }
                                         else

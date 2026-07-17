@@ -41,6 +41,10 @@ namespace ServerForChatApp
 
         TYPING_STATUS = 12,
 
+        MESSAGE_SENT = 13,
+
+        MESSAGE_SEEN = 14,
+
     }
 
     enum LogState : int
