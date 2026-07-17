@@ -3,7 +3,7 @@
     internal static class CheckOfflineMessages
     {
 
-        public static string file = @"C:\Users\Tarık\Desktop\Message_Save.txt";
+        public static string file = @"C:\Users\tarik.dalkiran\Desktop\Workspace\Message_Save.txt";
 
         public static List<string> GetAndRemoveMessages(int user_ID)
         {
