@@ -1,6 +1,5 @@
 ﻿using Server_for_ChatApp.GroupChatManager;
 using Server_for_ChatApp.Interfaces;
-using Server_for_ChatApp.Interfaces.RequestInterfaces;
 using Server_for_ChatApp.Managers.DatabaseManager;
 using Server_for_ChatApp.Managers.GroupChatManager;
 using Server_for_ChatApp.Managers.UserManagers;
@@ -41,6 +40,7 @@ namespace ServerForChatApp
 
         TYPING_STATUS = 12,
 
+    
     }
 
     enum LogState : int
