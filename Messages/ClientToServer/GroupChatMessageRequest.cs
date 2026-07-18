@@ -11,7 +11,7 @@ namespace Server_for_ChatApp.Messages.ClientToServer
         public byte SenderId { get; private set; }
         public byte GroupId { get; private set; }
 
-        public int _messageid { get; private set; }
+        public int messageid { get; private set; }
 
         public byte[] MessageBytes { get; private set; }
 
@@ -26,7 +26,7 @@ namespace Server_for_ChatApp.Messages.ClientToServer
 
                 GroupId = reader.ReadByte();
 
-                _messageid = reader.ReadByte(); 
+                messageid = reader.ReadInt32(); 
 
                 int remainingBytes = (int)(ms.Length - ms.Position);
 

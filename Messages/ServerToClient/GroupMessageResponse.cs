@@ -16,11 +16,16 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 
         private long _serverTimestamp;
 
-        public GroupMessageResponse(byte senderId, byte groupId, byte[] messageBytes)
+        private int _messageId;
+
+        public GroupMessageResponse(byte senderId, byte groupId, int messageid, byte[] messageBytes)
         {
+
             _senderId = senderId;
 
             _groupId = groupId;
+
+            _messageId = messageid;
 
             _messageBytes = messageBytes;
 
@@ -41,6 +46,8 @@ namespace Server_for_ChatApp.Messages.ServerToClient
                 writer.Write(_senderId);
 
                 writer.Write(_groupId);
+
+                writer.Write(_messageId); 
 
                 writer.Write(_serverTimestamp);
 

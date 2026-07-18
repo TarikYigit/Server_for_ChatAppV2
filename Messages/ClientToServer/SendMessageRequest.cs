@@ -9,7 +9,7 @@ namespace Server_for_ChatApp.Messages.ClientToServer
         private byte ReceiverId { get; set; }
         private byte[] MessageBytes { get; set; }
 
-        private int _messageId; 
+        private int _messageId { get; set; }
         private long TimeStamp { get; set; }
 
         public SendMessageRequest(byte[] payload)

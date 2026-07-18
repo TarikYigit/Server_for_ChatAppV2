@@ -366,6 +366,16 @@ namespace ServerForChatApp
                                 }
                             }
                             break;
+
+                        case MessageId.MESSAGE_SEEN:
+                            {
+
+                                MessageSeenRequest request = new MessageSeenRequest(payload);
+
+                                session.ExecuteRequest(request);
+
+                            }
+                            break;
                     }
                 }
             }
