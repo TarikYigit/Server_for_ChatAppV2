@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ServerForChatApp
+﻿namespace ServerForChatApp
 {
     public static class ServerLogger
     {
