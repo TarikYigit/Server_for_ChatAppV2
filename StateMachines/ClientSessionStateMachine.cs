@@ -365,6 +365,10 @@ namespace Server_for_ChatApp.StateMachines
 
                                     GroupChatInfo group = _groupManager.GetGroupById(groupId);
 
+                                    MessageSentPacket sentPacket = new MessageSentPacket(myRequest.messageid);
+
+                                    ConnectionManager.Send(sentPacket.GetId(), sentPacket.ToBytes(), myStream);
+
                                     if (group != null)
                                     {
                                         GroupMessageResponse formattedMessage = new GroupMessageResponse(senderId, groupId, myRequest.messageid ,myRequest.MessageBytes);
