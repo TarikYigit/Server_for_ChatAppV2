@@ -28,7 +28,6 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 
         public byte[] ToBytes()
         {
-
             using (MemoryStream ms = new MemoryStream())
 
             using (BinaryWriter writer = new BinaryWriter(ms))
@@ -36,12 +35,13 @@ namespace Server_for_ChatApp.Messages.ServerToClient
 
                 writer.Write(_messageData.GetSenderId());
 
+                writer.Write(_messageData.GetMessageId());
+
                 writer.Write(_serverTimestamp);
 
                 writer.Write(_messageData.GetMessageBytes());
 
                 return ms.ToArray();
-
             }
         }
     }

@@ -40,7 +40,10 @@ namespace ServerForChatApp
 
         TYPING_STATUS = 12,
 
-    
+        MESSAGE_SENT = 13,
+
+        MESSAGE_SEEN = 14,
+
     }
 
     enum LogState : int
@@ -360,6 +363,16 @@ namespace ServerForChatApp
                                     ConnectionManager.Send((byte)MessageId.TYPING_STATUS, new byte[] { (byte)session.CurrentUserId }, targetStream);
 
                                 }
+                            }
+                            break;
+
+                        case MessageId.MESSAGE_SEEN:
+                            {
+
+                                MessageSeenRequest request = new MessageSeenRequest(payload);
+
+                                session.ExecuteRequest(request);
+
                             }
                             break;
                     }

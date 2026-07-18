@@ -9,6 +9,7 @@ namespace Server_for_ChatApp.Messages.ClientToServer
         private byte ReceiverId { get; set; }
         private byte[] MessageBytes { get; set; }
 
+        private int _messageId { get; set; }
         private long TimeStamp { get; set; }
 
         public SendMessageRequest(byte[] payload)
@@ -21,6 +22,8 @@ namespace Server_for_ChatApp.Messages.ClientToServer
                 SenderId = reader.ReadByte();
 
                 ReceiverId = reader.ReadByte();
+
+                _messageId = reader.ReadInt32(); 
 
                 int remainingBytes = (int)(ms.Length - ms.Position);
 
@@ -57,6 +60,11 @@ namespace Server_for_ChatApp.Messages.ClientToServer
 
             return (byte)MessageId.SEND_MESSAGE;
 
+        }
+
+        public int GetMessageId()
+        {
+            return _messageId;
         }
 
         public long GetTimeStamp()
