@@ -44,6 +44,10 @@ namespace ServerForChatApp
 
         MESSAGE_SEEN = 14,
 
+        EDIT_MESSAGE = 16,
+
+        EDIT_GROUP_MESSAGE = 17,
+
     }
 
     enum LogState : int

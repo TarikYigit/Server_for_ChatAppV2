@@ -462,6 +462,61 @@ namespace Server_for_ChatApp.StateMachines
                                     }
                                     return null;
                                 }
+
+                            case MessageId.EDIT_MESSAGE:
+                                {
+
+                                    SendMessageRequest myRequest = (SendMessageRequest)request;
+
+                                    byte receiverId = (byte)myRequest.GetReceiverId();
+
+                                    if (_connections.IsUserOnline(receiverId))
+                                    {
+
+                                        NetworkStream targetStream = _connections.GetStream(receiverId);
+
+                                        MessageResponse formattedMessage = new MessageResponse(myRequest);
+
+                                        ConnectionManager.Send((byte)MessageId.EDIT_MESSAGE, formattedMessage.ToBytes(), targetStream);
+
+                                    }
+                                    return null;
+                                }
+
+                            case MessageId.EDIT_GROUP_MESSAGE:
+                                {
+
+                                    GroupChatMessageRequest myRequest = (GroupChatMessageRequest)request;
+
+                                    byte senderId = myRequest.SenderId;
+
+                                    byte groupId = myRequest.GroupId;
+
+                                    GroupChatInfo group = _groupManager.GetGroupById(groupId);
+
+                                    if (group != null)
+                                    {
+
+                                        GroupMessageResponse formattedMessage = new GroupMessageResponse(senderId, groupId, myRequest.messageid, myRequest.MessageBytes);
+
+                                        byte[] finalPayload = formattedMessage.ToBytes();
+
+                                        foreach (int memberId in group.GroupChatUsers)
+                                        {
+                                            if (memberId == senderId) continue;
+
+                                            if (_connections.IsUserOnline(memberId))
+                                            {
+
+                                                NetworkStream targetStream = _connections.GetStream(memberId);
+
+                                                ConnectionManager.Send((byte)MessageId.EDIT_GROUP_MESSAGE, finalPayload, targetStream);
+
+                                            }
+                                        }
+                                    }
+                                    return null;
+                                }
                         }
                         break;
                 }
