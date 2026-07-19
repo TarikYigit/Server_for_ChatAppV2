@@ -1,4 +1,7 @@
 ﻿using Server_for_ChatApp.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
 namespace Server_for_ChatApp.Vault
 {
@@ -9,24 +12,23 @@ namespace Server_for_ChatApp.Vault
 
         private string offlineMessageGroupFile = @"C:\Users\Tarık\Desktop\";
 
-
-        public void AddNewMessageForUser(byte fromId, byte toId, byte[] data)
+        public void AddNewMessageForUser(byte fromId, byte toId, byte messageType, byte[] data)
         {
 
             string base64Data = Convert.ToBase64String(data);
 
-            string line = $"{fromId} {toId} {base64Data}";
+            string line = $"{fromId} {toId} {messageType} {base64Data}";
 
-            Console.WriteLine(line );
+            Console.WriteLine(line);
 
             File.AppendAllLines(myFile, new[] { line });
 
         }
 
-        public List<byte[]> GetOfflineMessagesForUser(byte userId)
+        public List<Tuple<byte, byte[]>> GetOfflineMessagesForUser(byte userId)
         {
 
-            List<byte[]> userMessages = new List<byte[]>();
+            List<Tuple<byte, byte[]>> userMessages = new List<Tuple<byte, byte[]>>();
 
             if (!File.Exists(myFile)) return userMessages;
 
@@ -37,7 +39,7 @@ namespace Server_for_ChatApp.Vault
 
                 string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-                if (parts.Length >= 3 && parts[1] == userId.ToString())
+                if (parts.Length >= 4 && parts[1] == userId.ToString())
                 {
 
                     try
@@ -45,18 +47,18 @@ namespace Server_for_ChatApp.Vault
 
                         byte senderId = byte.Parse(parts[0]);
 
-                        byte receiverId = byte.Parse(parts[1]); 
+                        byte receiverId = byte.Parse(parts[1]);
 
-                        byte[] textData = Convert.FromBase64String(parts[2]);
+                        byte messageType = byte.Parse(parts[2]); 
 
-                        userMessages.Add(textData);
+                        byte[] textData = Convert.FromBase64String(parts[3]);
+
+                        userMessages.Add(new Tuple<byte, byte[]>(messageType, textData));
+
                     }
-                    catch (Exception ex)
-                    {
-                    }
+                    catch (Exception) { }
                 }
             }
-
             return userMessages;
         }
 
@@ -74,34 +76,50 @@ namespace Server_for_ChatApp.Vault
 
                 string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-                if (parts.Length >= 3 && parts[1] == userId.ToString())
+                if (parts.Length >= 4 && parts[1] == userId.ToString())
                 {
 
                     continue;
 
                 }
-
                 linesToKeep.Add(line);
-            }
 
+            }
             File.WriteAllLines(myFile, linesToKeep);
         }
-        public void AddOfflineGroupMessage(byte targetUserId, byte[] payload)
+
+        public void AddOfflineGroupMessage(byte targetUserId, byte messageType, byte[] payload)
         {
-            string filePath = Path.Combine(offlineMessageGroupFile, $"{targetUserId}_grp_{System.DateTime.Now.Ticks}.msg");
+
+            string filePath = Path.Combine(offlineMessageGroupFile, $"{targetUserId}_grp_{messageType}_{System.DateTime.Now.Ticks}.msg");
 
             System.IO.File.WriteAllBytes(filePath, payload);
+
         }
 
-        public List<byte[]> GetOfflineGroupMessagesForUser(byte userId)
+        public List<Tuple<byte, byte[]>> GetOfflineGroupMessagesForUser(byte userId)
         {
-            List<byte[]> messages = new List<byte[]>();
+
+            List<Tuple<byte, byte[]>> messages = new List<Tuple<byte, byte[]>>();
 
             foreach (string file in Directory.GetFiles(offlineMessageGroupFile, $"{userId}_grp_*.msg"))
             {
 
-                messages.Add(System.IO.File.ReadAllBytes(file));
+                try
+                {
 
+                    string fileName = Path.GetFileNameWithoutExtension(file);
+
+                    string[] parts = fileName.Split('_');
+
+                    byte messageType = byte.Parse(parts[2]);
+
+                    byte[] data = System.IO.File.ReadAllBytes(file);
+
+                    messages.Add(new Tuple<byte, byte[]>(messageType, data));
+
+                }
+                catch { }
             }
             return messages;
         }

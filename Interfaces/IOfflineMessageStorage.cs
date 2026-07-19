@@ -2,16 +2,18 @@
 {
     public interface IOfflineMessageStorage
     {
-        void AddNewMessageForUser(byte fromId, byte toId, byte[] data);
 
-        List<byte[]> GetOfflineMessagesForUser(byte userId);
+        void AddNewMessageForUser(byte fromId, byte toId, byte messageType, byte[] data);
+
+        List<Tuple<byte, byte[]>> GetOfflineMessagesForUser(byte userId);
 
         void ClearOfflineMessagesForUser(byte userId);
 
-        void AddOfflineGroupMessage(byte targetUserId, byte[] payload);
+        void AddOfflineGroupMessage(byte targetUserId, byte messageType, byte[] payload);
 
-        List<byte[]> GetOfflineGroupMessagesForUser(byte targetUserId);
+        List<Tuple<byte, byte[]>> GetOfflineGroupMessagesForUser(byte userId);
 
-        void ClearOfflineGroupMessagesForUser(byte targetUserId);
+        void ClearOfflineGroupMessagesForUser(byte userId);
+
     }
-}
+}   

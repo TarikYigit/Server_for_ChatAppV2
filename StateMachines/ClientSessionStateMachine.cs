@@ -283,7 +283,7 @@ namespace Server_for_ChatApp.StateMachines
                                         else
                                         {
 
-                                            _offlineMessageStorage.AddNewMessageForUser(senderId, receiverId, formattedMessage.ToBytes());
+                                            _offlineMessageStorage.AddNewMessageForUser(senderId, receiverId, (byte)MessageId.SEND_MESSAGE, formattedMessage.ToBytes());
 
                                         }
                                     }
@@ -293,42 +293,38 @@ namespace Server_for_ChatApp.StateMachines
 
                             case MessageId.FETCH_OFFLINE_MESSAGES:
                                 {
-
                                     FetchOfflineMessageRequest myRequest = (FetchOfflineMessageRequest)request;
-
                                     byte targetUserId = (byte)myRequest.GetUserID();
 
                                     if (_connections.IsUserOnline(targetUserId))
                                     {
-
                                         NetworkStream targetStream = _connections.GetStream(targetUserId);
 
-                                        List<byte[]> messages = _offlineMessageStorage.GetOfflineMessagesForUser(targetUserId);
+                                        var messages = _offlineMessageStorage.GetOfflineMessagesForUser(targetUserId);
 
                                         if (messages.Count > 0)
                                         {
-                                            ServerLogger.LogVault($"Flushing {messages.Count} pending 1-on-1 messages to User {targetUserId}.");
+                                            // (Assuming you have ServerLogger in your scope, kept from your original code!)
+                                            Console.WriteLine($"Flushing {messages.Count} pending 1-on-1 messages to User {targetUserId}.");
 
-                                            foreach (byte[] messagePayload in messages)
+                                            foreach (var msgTuple in messages)
                                             {
-
-                                                ConnectionManager.Send((byte)MessageId.SEND_MESSAGE, messagePayload, targetStream);
-
+                                                // msgTuple.Item1 is the dynamically saved MessageType (0x03 for text, 0x12 for image)
+                                                // msgTuple.Item2 is the payload bytes
+                                                ConnectionManager.Send(msgTuple.Item1, msgTuple.Item2, targetStream);
                                             }
                                             _offlineMessageStorage.ClearOfflineMessagesForUser(targetUserId);
                                         }
 
-                                        List<byte[]> groupMessages = _offlineMessageStorage.GetOfflineGroupMessagesForUser(targetUserId);
+                                        var groupMessages = _offlineMessageStorage.GetOfflineGroupMessagesForUser(targetUserId);
 
                                         if (groupMessages.Count > 0)
                                         {
-                                            ServerLogger.LogVault($"Flushing {groupMessages.Count} pending group messages to User {targetUserId}.");
+                                            Console.WriteLine($"Flushing {groupMessages.Count} pending group messages to User {targetUserId}.");
 
-                                            foreach (byte[] groupPayload in groupMessages)
+                                            foreach (var groupTuple in groupMessages)
                                             {
-
-                                                ConnectionManager.Send((byte)MessageId.GROUP_CHAT_MESSAGE, groupPayload, targetStream);
-
+                                                ConnectionManager.Send(groupTuple.Item1, groupTuple.Item2, targetStream);
                                             }
                                             _offlineMessageStorage.ClearOfflineGroupMessagesForUser(targetUserId);
                                         }
@@ -394,7 +390,7 @@ namespace Server_for_ChatApp.StateMachines
 
                                                 ServerLogger.LogVault($"User {memberId} is offline. Dropping {finalPayload.Length} bytes to local vault.");
 
-                                                _offlineMessageStorage.AddOfflineGroupMessage((byte)memberId, finalPayload);
+                                                _offlineMessageStorage.AddOfflineGroupMessage((byte)memberId, (byte)MessageId.GROUP_CHAT_MESSAGE, finalPayload);
 
                                             }
 
@@ -549,7 +545,7 @@ namespace Server_for_ChatApp.StateMachines
                                         else
                                         {
 
-                                            _offlineMessageStorage.AddNewMessageForUser(myRequest.SenderId, receiverId, formattedMessage.ToBytes());
+                                            _offlineMessageStorage.AddNewMessageForUser(myRequest.SenderId, receiverId, (byte)MessageId.SEND_IMAGE, formattedMessage.ToBytes());
 
                                         }
                                     }
@@ -592,7 +588,7 @@ namespace Server_for_ChatApp.StateMachines
                                             else
                                             {
 
-                                                _offlineMessageStorage.AddOfflineGroupMessage((byte)memberId, finalPayload);
+                                                _offlineMessageStorage.AddOfflineGroupMessage((byte)memberId, (byte)MessageId.GROUP_IMAGE, finalPayload);
 
                                             }
                                         }
