@@ -126,11 +126,15 @@ namespace Server_for_ChatApp.Vault
             {
                 try
                 {
+
                     string fileName = Path.GetFileNameWithoutExtension(file);
+
                     string[] parts = fileName.Split('_');
+
                     byte messageType = byte.Parse(parts[2]);
 
                     byte[] data = System.IO.File.ReadAllBytes(file);
+
                     messages.Add(new Tuple<byte, byte[]>(messageType, data));
                 }
                 catch { }
