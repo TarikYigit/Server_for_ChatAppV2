@@ -304,14 +304,14 @@ namespace Server_for_ChatApp.StateMachines
 
                                         if (messages.Count > 0)
                                         {
-                                            // (Assuming you have ServerLogger in your scope, kept from your original code!)
+
                                             Console.WriteLine($"Flushing {messages.Count} pending 1-on-1 messages to User {targetUserId}.");
 
                                             foreach (var msgTuple in messages)
                                             {
-                                                // msgTuple.Item1 is the dynamically saved MessageType (0x03 for text, 0x12 for image)
-                                                // msgTuple.Item2 is the payload bytes
+
                                                 ConnectionManager.Send(msgTuple.Item1, msgTuple.Item2, targetStream);
+
                                             }
                                             _offlineMessageStorage.ClearOfflineMessagesForUser(targetUserId);
                                         }
@@ -320,11 +320,14 @@ namespace Server_for_ChatApp.StateMachines
 
                                         if (groupMessages.Count > 0)
                                         {
+
                                             Console.WriteLine($"Flushing {groupMessages.Count} pending group messages to User {targetUserId}.");
 
                                             foreach (var groupTuple in groupMessages)
                                             {
+
                                                 ConnectionManager.Send(groupTuple.Item1, groupTuple.Item2, targetStream);
+
                                             }
                                             _offlineMessageStorage.ClearOfflineGroupMessagesForUser(targetUserId);
                                         }
