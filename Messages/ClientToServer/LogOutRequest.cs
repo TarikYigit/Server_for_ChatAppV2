@@ -21,7 +21,9 @@ namespace Server_for_ChatApp.Messages.ClientToServer
 
         public byte GetUserID()
         {
+
             return (byte)UserId;
+
         }
 
     }

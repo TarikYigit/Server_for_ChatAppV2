@@ -48,6 +48,10 @@ namespace ServerForChatApp
 
         EDIT_GROUP_MESSAGE = 17,
 
+        SEND_IMAGE = 18,
+
+        GROUP_IMAGE = 19
+
     }
 
     enum LogState : int
@@ -386,6 +390,7 @@ namespace ServerForChatApp
                                 SendMessageRequest request = new SendMessageRequest(payload);
 
                                 session.ExecuteRequest(request, MessageId.EDIT_MESSAGE);
+
                             }
                             break;
 
@@ -395,6 +400,27 @@ namespace ServerForChatApp
                                 GroupChatMessageRequest request = new GroupChatMessageRequest(payload);
 
                                 session.ExecuteRequest(request, MessageId.EDIT_GROUP_MESSAGE);
+
+                            }
+                            break;
+
+                        case MessageId.SEND_IMAGE:
+                            {
+
+                                ImageMessageRequest request = new ImageMessageRequest(payload);
+
+                                session.ExecuteRequest(request);
+
+                            }
+                            break;
+
+                        case MessageId.GROUP_IMAGE:
+                            {
+
+                                GroupImageMessageRequest request = new GroupImageMessageRequest(payload);
+
+                                session.ExecuteRequest(request);
+
                             }
                             break;
                     }

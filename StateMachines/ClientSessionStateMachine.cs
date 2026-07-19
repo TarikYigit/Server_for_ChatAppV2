@@ -517,6 +517,88 @@ namespace Server_for_ChatApp.StateMachines
                                     }
                                     return null;
                                 }
+
+                            case MessageId.SEND_IMAGE:
+                                {
+
+                                    ImageMessageRequest myRequest = (ImageMessageRequest)request;
+
+                                    byte receiverId = myRequest.ReceiverId;
+
+                                    if (_users.GetUserById(receiverId) != null)
+                                    {
+
+                                        ImageMessageResponse formattedMessage = new ImageMessageResponse(myRequest.SenderId, myRequest.Messageid, myRequest.ImageBytes);
+
+                                        MessageSentPacket sentPacket = new MessageSentPacket(myRequest.Messageid);
+
+                                        ConnectionManager.Send(sentPacket.GetId(), sentPacket.ToBytes(), myStream);
+
+                                        if (_connections.IsUserOnline(receiverId))
+                                        {
+
+                                            NetworkStream targetStream = _connections.GetStream(receiverId);
+
+                                            ConnectionManager.Send(formattedMessage.GetId(), formattedMessage.ToBytes(), targetStream);
+
+                                            MessageSeenPacket seenPacket = new MessageSeenPacket(myRequest.Messageid);
+
+                                            ConnectionManager.Send(seenPacket.GetId(), seenPacket.ToBytes(), myStream);
+
+                                        }
+                                        else
+                                        {
+
+                                            _offlineMessageStorage.AddNewMessageForUser(myRequest.SenderId, receiverId, formattedMessage.ToBytes());
+
+                                        }
+                                    }
+                                    return null;
+                                }
+
+                            case MessageId.GROUP_IMAGE:
+                                {
+
+                                    GroupImageMessageRequest myRequest = (GroupImageMessageRequest)request;
+
+                                    byte groupId = myRequest.GroupId;
+
+                                    GroupChatInfo group = _groupManager.GetGroupById(groupId);
+
+                                    MessageSentPacket sentPacket = new MessageSentPacket(myRequest.Messageid);
+
+                                    ConnectionManager.Send(sentPacket.GetId(), sentPacket.ToBytes(), myStream);
+
+                                    if (group != null)
+                                    {
+
+                                        GroupImageMessageResponse formattedMessage = new GroupImageMessageResponse(myRequest.SenderId, groupId, myRequest.Messageid, myRequest.ImageBytes);
+
+                                        byte[] finalPayload = formattedMessage.ToBytes();
+
+                                        foreach (int memberId in group.GroupChatUsers)
+                                        {
+
+                                            if (memberId == myRequest.SenderId) continue;
+
+                                            if (_connections.IsUserOnline(memberId))
+                                            {
+
+                                                NetworkStream targetStream = _connections.GetStream(memberId);
+
+                                                ConnectionManager.Send(formattedMessage.GetId(), finalPayload, targetStream);
+
+                                            }
+                                            else
+                                            {
+
+                                                _offlineMessageStorage.AddOfflineGroupMessage((byte)memberId, finalPayload);
+
+                                            }
+                                        }
+                                    }
+                                    return null;
+                                }
                         }
                         break;
                 }

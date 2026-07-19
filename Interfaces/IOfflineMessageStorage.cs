@@ -9,7 +9,9 @@
         void ClearOfflineMessagesForUser(byte userId);
 
         void AddOfflineGroupMessage(byte targetUserId, byte[] payload);
+
         List<byte[]> GetOfflineGroupMessagesForUser(byte targetUserId);
+
         void ClearOfflineGroupMessagesForUser(byte targetUserId);
     }
 }
