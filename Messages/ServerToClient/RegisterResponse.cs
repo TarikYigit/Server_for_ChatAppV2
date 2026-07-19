@@ -38,20 +38,28 @@ namespace Server_for_ChatApp.Messages.ServerToClient
             {
                 if (IsAccepted)
                 {
+
                     writer.Write((byte)0x01); // 0x01 = Accepted
+
                     writer.Write((byte)AssignedId);
+
                 }
                 else
                 {
+
                     writer.Write((byte)0x02); // 0x02 = Rejected
 
                     if (!PasswordStrong)
                     {
+
                         writer.Write((byte)0x01); // Reason 0x01 = Password Weak
+
                     }
                     else
                     {
+
                         writer.Write((byte)0x02); // Reason 0x02 = Username Taken
+
                     }
                 }
                 return ms.ToArray();

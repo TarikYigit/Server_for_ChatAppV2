@@ -8,7 +8,7 @@ namespace ServerForChatApp.Messages.ClientToServer
 
         public GetUserListRequest(byte[] payload)
         {
-            // request = GetUserRequest(userId)
+
             if (payload != null && payload.Length > 0)
             {
 
