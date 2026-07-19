@@ -379,6 +379,24 @@ namespace ServerForChatApp
 
                             }
                             break;
+
+                        case MessageId.EDIT_MESSAGE:
+                            {
+
+                                SendMessageRequest request = new SendMessageRequest(payload);
+
+                                session.ExecuteRequest(request, MessageId.EDIT_MESSAGE);
+                            }
+                            break;
+
+                        case MessageId.EDIT_GROUP_MESSAGE:
+                            {
+
+                                GroupChatMessageRequest request = new GroupChatMessageRequest(payload);
+
+                                session.ExecuteRequest(request, MessageId.EDIT_GROUP_MESSAGE);
+                            }
+                            break;
                     }
                 }
             }

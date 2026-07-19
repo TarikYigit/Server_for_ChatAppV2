@@ -46,9 +46,9 @@ namespace Server_for_ChatApp.StateMachines
             }
 
 
-            public INetworkMessage? ExecuteRequest(IRequest request)
+            public INetworkMessage? ExecuteRequest(IRequest request, MessageId? overrideAction = null)
             {
-                MessageId action = (MessageId)request.GetId();
+                MessageId action = overrideAction ?? (MessageId)request.GetId();
 
                 switch (currentState)
                 {
