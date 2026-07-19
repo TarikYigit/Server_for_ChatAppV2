@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Server_for_ChatApp.Vault
 {
@@ -102,25 +103,39 @@ namespace Server_for_ChatApp.Vault
 
             List<Tuple<byte, byte[]>> messages = new List<Tuple<byte, byte[]>>();
 
-            foreach (string file in Directory.GetFiles(offlineMessageGroupFile, $"{userId}_grp_*.msg"))
+            string[] files = Directory.GetFiles(offlineMessageGroupFile, $"{userId}_grp_*.msg");
+
+            var sortedFiles = files.OrderBy(file =>
             {
 
-                try
+                string fileName = Path.GetFileNameWithoutExtension(file);
+
+                string[] parts = fileName.Split('_');
+
+                if (parts.Length >= 4 && long.TryParse(parts[3], out long ticks))
                 {
 
+                    return ticks;
+
+                }
+                return 0L; 
+
+            }).ToList();
+
+            foreach (string file in sortedFiles)
+            {
+                try
+                {
                     string fileName = Path.GetFileNameWithoutExtension(file);
-
                     string[] parts = fileName.Split('_');
-
                     byte messageType = byte.Parse(parts[2]);
 
                     byte[] data = System.IO.File.ReadAllBytes(file);
-
                     messages.Add(new Tuple<byte, byte[]>(messageType, data));
-
                 }
                 catch { }
             }
+
             return messages;
         }
 
